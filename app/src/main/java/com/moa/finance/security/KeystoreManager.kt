@@ -46,8 +46,13 @@ object KeystoreManager {
             .apply {
                 if (requireBiometric) {
                     setUserAuthenticationRequired(true)
-                    // 매 서명마다 생체 인증 요구 (0초 유효)
-                    setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+                    // 매 서명마다 생체 인증 요구. API 30+ 는 세분화 파라미터, 이하 호환 경로.
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                        setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        setUserAuthenticationValidityDurationSeconds(-1)
+                    }
                 }
             }
             .build()

@@ -9,7 +9,7 @@ import androidx.security.crypto.MasterKey
  * 자동로그인 자격증명/기기 UUID 저장소.
  *
  *  - VULN (PLAINTEXT_AUTOLOGIN ON) : 일반 SharedPreferences 평문 저장.
- *      → 루팅 기기에서 /data/data/<pkg>/shared_prefs/*.xml 를 그대로 읽어 토큰 탈취 가능.
+ *      → 루팅 기기에서 앱 데이터 영역의 shared_prefs xml 를 그대로 읽어 토큰 탈취 가능.
  *      점검항목: D-26(중요정보 평문 저장), D-27, A-14, A-16 / E-F14,F16
  *  - SECURE : EncryptedSharedPreferences(AES256-GCM) + Android Keystore 마스터키.
  *

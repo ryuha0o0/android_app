@@ -96,6 +96,9 @@ private fun ColumnScope.TransferForm(initialAccountId: String?, onTransferDone: 
     var number by rememberSaveable { mutableStateOf("") }
     var amount by rememberSaveable { mutableStateOf<Long?>(null) }
     var confirm by remember { mutableStateOf(false) }
+    var tamper by remember { mutableStateOf(false) }
+    var tamperFrom by rememberSaveable { mutableStateOf(repo.primaryAccountId) }
+    var tamperAmount by rememberSaveable { mutableStateOf("") }
 
     val from = repo.account(fromId)
     val recipient = repo.lookupRecipient(number)
@@ -200,6 +203,13 @@ private fun ColumnScope.TransferForm(initialAccountId: String?, onTransferDone: 
     Spacer(Modifier.height(14.dp))
     PrimaryButton("다음 · 받는 분 확인", onClick = { confirm = true }, enabled = canSubmit)
 
+    Spacer(Modifier.height(10.dp))
+    MoaText(
+        "요청 직접 전송 (실습)",
+        size = 12.sp, weight = FontWeight.SemiBold, color = MoaBlue,
+        modifier = Modifier.clickable { tamper = true }.padding(6.dp),
+    )
+
     if (confirm && recipient != null && amount != null) {
         AlertDialog(
             onDismissRequest = { confirm = false },
@@ -210,14 +220,46 @@ private fun ColumnScope.TransferForm(initialAccountId: String?, onTransferDone: 
             },
             confirmButton = {
                 TextButton(onClick = {
-                    repo.transfer(from.id, bank, number, recipient, amount!!)
-                    confirm = false
-                    onTransferDone()
+                    runCatching { repo.executeTransfer(from.id, bank, number, recipient, amount!!) }
+                        .onSuccess { confirm = false; onTransferDone() }
+                        .onFailure { confirm = false; showMessage(it.message ?: "이체에 실패했어요") }
                 }) { Text("보내기", color = MoaBlue, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
                 TextButton(onClick = { confirm = false }) { Text("취소", color = MoaTextSecondary) }
             },
+        )
+    }
+
+    // 파라미터 변조 실습: 화면 검증(canSubmit)을 우회해 출금계좌 ID와 금액을 직접 입력해 전송.
+    if (tamper) {
+        AlertDialog(
+            onDismissRequest = { tamper = false },
+            containerColor = MoaSurface,
+            title = { Text("요청 파라미터 직접 전송", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text(
+                        "프록시로 요청을 가로채 변조하는 상황을 재현해요. 화면 한도·소유 검증을 건너뛰고 서버로 바로 보냅니다.",
+                        color = MoaTextSecondary, fontSize = 12.sp,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    FieldLabel("fromAccountId")
+                    MoaTextField(tamperFrom, { tamperFrom = it }, placeholder = "예: saving / install")
+                    Spacer(Modifier.height(10.dp))
+                    FieldLabel("amount")
+                    MoaTextField(tamperAmount, { tamperAmount = it.filter(Char::isDigit) }, placeholder = "예: 9000000", keyboardType = KeyboardType.Number)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val amt = tamperAmount.toLongOrNull() ?: 0L
+                    runCatching { repo.executeTransfer(tamperFrom.trim(), bank, number.ifBlank { "000-000-000000" }, recipient ?: "수취인", amt) }
+                        .onSuccess { tamper = false; showMessage("변조 요청이 실행됐어요 (${formatWon(amt)})"); onTransferDone() }
+                        .onFailure { tamper = false; showMessage("거부됨: ${it.message}") }
+                }) { Text("전송", color = MoaBlue, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { tamper = false }) { Text("취소", color = MoaTextSecondary) } },
         )
     }
 }

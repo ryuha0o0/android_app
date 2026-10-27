@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 백업/기기이전 시 민감정보 제외 (D-26,38). 실습 자격증명·로컬 DB 백업 금지. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="auth_plain.xml" />
+        <exclude domain="sharedpref" path="auth_secure.xml" />
+        <exclude domain="database" path="moa_lab.db" />
+        <exclude domain="file" path="board" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="auth_plain.xml" />
+        <exclude domain="database" path="moa_lab.db" />
+    </device-transfer>
+</data-extraction-rules>

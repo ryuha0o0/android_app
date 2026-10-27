@@ -18,6 +18,9 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import com.moa.finance.ui.theme.MoaBlueLight
+import com.moa.finance.security.VulnConfig
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -121,6 +124,12 @@ private fun ColumnScope.PasswordTab(onDone: () -> Unit) {
     var showNext by remember { mutableStateOf(false) }
     var showConfirm by remember { mutableStateOf(false) }
 
+    // 인증단계 우회 실습 (D-05,37,44): 취약 모드면 본인확인 없이 변경 허용,
+    // 안전 모드면 본인확인(현재 비밀번호 재입력)을 통과해야 변경 버튼이 활성화됨.
+    val bypass = VulnConfig.isVulnerable(VulnConfig.Flag.AUTH_STEP_BYPASS)
+    var reauthed by remember { mutableStateOf(bypass) }
+    var reauthDialog by remember { mutableStateOf(false) }
+
     Spacer(Modifier.height(20.dp))
     ProfileCard(onChangePhone = { showMessage("기본정보 탭에서 번호를 바꿀 수 있어요") })
     Spacer(Modifier.height(26.dp))
@@ -130,6 +139,39 @@ private fun ColumnScope.PasswordTab(onDone: () -> Unit) {
         "회원정보 보호를 위한 비밀번호예요.\n금융인증서와 계좌 비밀번호는 바뀌지 않아요.",
         size = 13.sp, color = MoaTextSecondary, lineHeight = 20.sp,
     )
+
+    if (!bypass && !reauthed) {
+        Spacer(Modifier.height(16.dp))
+        WhiteCard(color = MoaBlueLight) {
+            MoaText("본인확인이 필요해요", size = 14.sp, weight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MoaText("비밀번호를 바꾸기 전에 본인확인을 먼저 해주세요.", size = 12.sp, color = MoaTextSecondary)
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton("본인확인 하기", onClick = { reauthDialog = true })
+        }
+    }
+    if (reauthDialog) {
+        var pw by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { reauthDialog = false },
+            containerColor = androidx.compose.ui.graphics.Color.White,
+            title = { MoaText("본인확인", weight = FontWeight.Bold, size = 16.sp) },
+            text = {
+                PasswordField(pw, { pw = it }, visible = false, onToggle = {})
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    enabled = pw.isNotEmpty(),
+                    onClick = { reauthed = true; reauthDialog = false },
+                ) { MoaText("확인", color = MoaBlue, weight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { reauthDialog = false }) {
+                    MoaText("취소", color = MoaTextSecondary)
+                }
+            },
+        )
+    }
 
     Spacer(Modifier.height(22.dp))
     FieldLabel("현재 비밀번호")
@@ -170,9 +212,9 @@ private fun ColumnScope.PasswordTab(onDone: () -> Unit) {
     Spacer(Modifier.height(18.dp))
     PrimaryButton(
         "비밀번호 변경하기",
-        enabled = current.isNotEmpty() && ruleOk && matches && current != next,
+        enabled = reauthed && current.isNotEmpty() && ruleOk && matches && current != next,
         onClick = {
-            showMessage("비밀번호를 변경했어요")
+            showMessage(if (bypass) "본인확인 없이 비밀번호가 변경됐어요 (우회)" else "비밀번호를 변경했어요")
             onDone()
         },
     )

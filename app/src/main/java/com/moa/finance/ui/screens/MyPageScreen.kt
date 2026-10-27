@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.HeadsetMic
 import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.AlertDialog
@@ -50,6 +51,7 @@ import com.moa.finance.ui.components.MoaTopBar
 import com.moa.finance.ui.components.ScreenPadding
 import com.moa.finance.ui.theme.MoaBackground
 import com.moa.finance.ui.theme.MoaBlue
+import com.moa.finance.ui.theme.MoaDanger
 import com.moa.finance.ui.theme.MoaBlueLight
 import com.moa.finance.ui.theme.MoaSurface
 import com.moa.finance.ui.theme.MoaTextSecondary
@@ -60,6 +62,7 @@ fun MyPageScreen(
     onBack: () -> Unit,
     onEditProfile: () -> Unit,
     onManageAccount: () -> Unit,
+    onSecurityLab: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val showMessage = LocalShowMessage.current
@@ -116,6 +119,13 @@ fun MyPageScreen(
                 MenuRow("고객센터", Icons.Outlined.HeadsetMic) { showMessage("고객센터 1588-0000") }
                 MenuDivider()
                 MenuRow("약관 및 개인정보 처리방침", Icons.Outlined.Description) { showMessage("약관 전문은 준비 중이에요") }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            MoaText("개발 · 실습", size = 15.sp, weight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            MenuGroup {
+                MenuRow("보안 실습 설정", Icons.Outlined.Science, "취약/안전 모드 전환 · 취약점 진단", iconTint = MoaDanger, onClick = onSecurityLab)
             }
 
             Spacer(Modifier.height(18.dp))

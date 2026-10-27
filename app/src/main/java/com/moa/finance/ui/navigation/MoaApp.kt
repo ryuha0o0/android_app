@@ -36,6 +36,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.moa.finance.ui.components.LocalShowMessage
+import com.moa.finance.ui.screens.SecurityLabScreen
+import com.moa.finance.ui.screens.MainBoardScreen
+import com.moa.finance.security.LocalSession
+import com.moa.finance.data.MoaRepository
+import androidx.compose.runtime.LaunchedEffect
 import com.moa.finance.ui.screens.AccountManageScreen
 import com.moa.finance.ui.screens.CardScreen
 import com.moa.finance.ui.screens.EditProfileScreen
@@ -61,6 +66,8 @@ object Routes {
     const val MY = "my"
     const val EDIT_PROFILE = "my/profile"
     const val ACCOUNT_MANAGE = "my/account"
+    const val MAIN_BOARD = "main"
+    const val SECURITY_LAB = "my/security-lab"
 
     fun inquiry(tab: Int = 0, accountId: String? = null) =
         "$INQUIRY?tab=$tab" + (accountId?.let { "&account=$it" } ?: "")
@@ -80,16 +87,29 @@ private enum class BottomTab(val label: String, val icon: ImageVector, val route
 }
 
 @Composable
-fun MoaApp() {
+fun MoaApp(deepLinkHost: String? = null) {
     val navController = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val session = LocalSession.current
     val showMessage: (String) -> Unit = remember {
         { message ->
             scope.launch {
                 snackbar.currentSnackbarData?.dismiss()
                 snackbar.showSnackbar(message)
             }
+        }
+    }
+
+    // 자동로그인 시도 + 딥링크 강제 진입 처리 (최초 1회)
+    LaunchedEffect(Unit) {
+        val autologin = session.tryAutoLogin()
+        when {
+            deepLinkHost == "password-change" -> {
+                // 화면 강제실행: 로그인 없이 비밀번호 변경 화면으로 진입 (인증단계 우회 실습)
+                navController.navigate(Routes.EDIT_PROFILE) { popUpTo(Routes.LOGIN) { inclusive = true } }
+            }
+            autologin -> navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } }
         }
     }
 
@@ -116,6 +136,8 @@ fun MoaApp() {
                 composable(Routes.LOGIN) {
                     LoginScreen(
                         onLogin = {
+                            session.login(MoaRepository.user.name)
+                            session.enableAutoLogin(MoaRepository.user.name)
                             navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } }
                         },
                         onSignUp = { navController.navigate(Routes.SIGN_UP) },
@@ -126,6 +148,7 @@ fun MoaApp() {
                     SignUpScreen(
                         onBack = { navController.popBackStack() },
                         onComplete = {
+                            session.login(MoaRepository.user.name)
                             navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } }
                         },
                     )
@@ -185,16 +208,24 @@ fun MoaApp() {
                         onBack = { navController.navigateUpOrHome() },
                         onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) },
                         onManageAccount = { navController.navigate(Routes.ACCOUNT_MANAGE) },
+                        onSecurityLab = { navController.navigate(Routes.SECURITY_LAB) },
                         onLogout = {
+                            session.logout()
                             navController.navigate(Routes.LOGIN) { popUpTo(navController.graph.id) { inclusive = true } }
                         },
                     )
                 }
                 composable(Routes.EDIT_PROFILE) {
-                    EditProfileScreen(onBack = { navController.popBackStack() })
+                    EditProfileScreen(onBack = { navController.navigateUpOrHome() })
                 }
                 composable(Routes.ACCOUNT_MANAGE) {
                     AccountManageScreen(onBack = { navController.popBackStack() })
+                }
+                composable(Routes.MAIN_BOARD) {
+                    MainBoardScreen(onBack = { navController.navigateUpOrHome() })
+                }
+                composable(Routes.SECURITY_LAB) {
+                    SecurityLabScreen(onBack = { navController.popBackStack() })
                 }
             }
         }

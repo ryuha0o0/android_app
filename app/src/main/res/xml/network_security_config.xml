@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  통신구간 보안 기준 (P0 공통 — D-47,51~54,65 / A-14~17 / B-15 / C-06,08,10).
+  운영 도메인은 평문(HTTP) 전송을 금지하고 시스템 신뢰 인증서만 사용합니다.
+  실습용 로컬 서버가 생기면 10.0.2.2(에뮬레이터) 도메인만 예외로 둘 수 있습니다.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <!-- 실습용 로컬 백엔드(향후): 에뮬레이터 호스트에서만 평문 허용 -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+</network-security-config>

@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.moa.finance.security.VulnConfig
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -12,6 +13,8 @@ import java.time.format.DateTimeFormatter
  * Values are Compose state so every screen updates when a transfer happens.
  */
 object MoaRepository {
+
+    const val TRANSFER_LIMIT = 1_000_000L
 
     val banks = listOf("한빛은행", "새봄은행", "늘봄은행", "Labbit은행", "하나로은행")
 
@@ -67,11 +70,33 @@ object MoaRepository {
         lastRefreshed = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
     }
 
+    /**
+     * 이체 실행. 서버가 없으므로 이 함수가 "서버 측 최종 검증" 역할을 합니다.
+     *
+     * 파라미터 변조 실습 (D-04,21 / B-08,17):
+     *  - PARAM_TAMPER_TRANSFER ON  : 출금계좌 소유/이체가능 여부, 1회 한도, 잔액을
+     *        재검증하지 않음 → 화면 검증을 우회해 보낸 변조 요청이 그대로 실행됨
+     *        (한도 초과 이체, 비이체 계좌 출금, 잔액 초과 음수잔액 등).
+     *  - OFF : 소유·한도·잔액을 모두 재검증하고 위반 시 거부.
+     */
+    fun executeTransfer(fromId: String, bank: String, number: String, recipient: String, amount: Long): TransferResult {
+        val index = accounts.indexOfFirst { it.id == fromId }
+        require(index >= 0) { "존재하지 않는 출금계좌예요." }
+        val from = accounts[index]
+        if (!VulnConfig.isVulnerable(VulnConfig.Flag.PARAM_TAMPER_TRANSFER)) {
+            require(from.transferable) { "이체할 수 없는 계좌예요." }
+            require(amount in 1..TRANSFER_LIMIT) { "1회 이체 한도(100만원)를 벗어났어요." }
+            require(amount <= from.balance) { "잔액이 부족해요." }
+        } else {
+            require(amount > 0) { "금액을 확인해 주세요." }
+        }
+        return transfer(fromId, bank, number, recipient, amount)
+    }
+
     fun transfer(fromId: String, bank: String, number: String, recipient: String, amount: Long): TransferResult {
         val index = accounts.indexOfFirst { it.id == fromId }
         require(index >= 0) { "Unknown account $fromId" }
         val from = accounts[index]
-        require(amount in 1..from.balance) { "Insufficient balance" }
 
         val updated = from.copy(balance = from.balance - amount)
         accounts[index] = updated

@@ -29,5 +29,17 @@ Figma 디자인을 바탕으로 만든 Kotlin + Jetpack Compose 안드로이드 
 이체·출금을 하면 잔액, 거래내역, 이체결과가 실제로 갱신되고, 대표계좌 설정·계좌 별명 변경·카드 일시정지 등도 앱 안에서 반영됩니다.
 실제 서비스로 연결하려면 이 저장소 객체를 API 호출로 교체하면 됩니다.
 
+## 보안 실습 (취약점 진단)
+이 앱은 금융보안원 전자금융기반시설 평가기준 등 점검항목을 직접 진단하는 **교육용 앱**입니다.
+각 취약 시나리오는 **마이페이지 → 보안 실습 설정**에서 취약/안전 모드로 전환할 수 있어요.
+구현한 취약점과 점검번호 매핑은 [`docs/security/SECURITY-LAB.md`](docs/security/SECURITY-LAB.md)를 참고하세요.
+
+> ⚠️ 교육용입니다. 실제 서버·실제 금융데이터가 없고 모든 처리는 기기 내부(로컬)에서만 일어나요.
+> 운영 배포 시 `security/VulnConfig.kt`와 vulnerable 분기를 제거해야 합니다.
+
+## APK 자동 빌드
+GitHub에 push하면 Actions가 debug APK를 빌드해요.
+저장소 **Actions 탭 → 최근 실행 → Artifacts → labbit-debug-apk** 에서 내려받아 설치할 수 있어요.
+
 ## API 명세
 서버 API 명세(OpenAPI 3.0)는 [`docs/api/openapi.yaml`](docs/api/openapi.yaml), 화면별 API 정리는 [`docs/api/README.md`](docs/api/README.md)에 있습니다.

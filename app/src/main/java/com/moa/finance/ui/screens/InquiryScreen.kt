@@ -36,6 +36,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.moa.finance.ui.components.PrimaryButton
+import com.moa.finance.ui.components.MoaTextField
+import com.moa.finance.data.local.MoaDbHelper
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -200,10 +205,25 @@ private enum class TxFilter(val label: String) { All("전체"), In("입금"), Ou
 @Composable
 private fun ColumnScope.HistoryTab(accountId: String, onAccountChange: (String) -> Unit) {
     val repo = MoaRepository
+    val context = LocalContext.current
     var filter by remember { mutableStateOf(TxFilter.All) }
     var newestFirst by remember { mutableStateOf(true) }
-    val showMessage = LocalShowMessage.current
     val account = repo.account(accountId)
+
+    // 날짜 조회 입력 — SQL 인젝션 실습의 공격 표면 (조회 API24 / D-19).
+    var from by rememberSaveable { mutableStateOf("2026-10-01") }
+    var to by rememberSaveable { mutableStateOf("2026-10-24") }
+    var results by remember { mutableStateOf(repo.transactionsOf(account.id)) }
+    var crossAccount by remember { mutableStateOf(false) }
+
+    fun runSearch() {
+        val rows = MoaDbHelper.get(context).searchTransactions(account.id, from, to)
+        results = rows
+        // 취약 모드에서 다른 계좌 행까지 새어 나오면 인젝션 성공 신호
+        crossAccount = rows.any { it.accountId != account.id }
+    }
+
+    LaunchedEffect(account.id) { runSearch() }
 
     Spacer(Modifier.height(20.dp))
     AccountPickerCard(account, repo.accounts, onSelect = { onAccountChange(it.id) }) {
@@ -212,15 +232,18 @@ private fun ColumnScope.HistoryTab(accountId: String, onAccountChange: (String) 
     }
 
     Spacer(Modifier.height(22.dp))
+    MoaText("조회 기간 (yyyy-MM-dd)", size = 13.sp, color = MoaTextSecondary)
+    Spacer(Modifier.height(8.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        MoaText("2026.10.01 – 10.24", size = 14.sp, weight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        Icon(
-            Icons.Outlined.CalendarMonth,
-            contentDescription = "기간 선택",
-            tint = MoaTextSecondary,
-            modifier = Modifier.size(22.dp).clickable { showMessage("조회 기간 변경은 준비 중이에요") },
-        )
+        MoaTextField(from, { from = it }, modifier = Modifier.weight(1f), placeholder = "시작일")
+        Spacer(Modifier.width(8.dp))
+        MoaText("–", size = 16.sp, color = MoaTextSecondary)
+        Spacer(Modifier.width(8.dp))
+        MoaTextField(to, { to = it }, modifier = Modifier.weight(1f), placeholder = "종료일")
     }
+    Spacer(Modifier.height(10.dp))
+    PrimaryButton("조회", onClick = { runSearch() })
+
     Spacer(Modifier.height(12.dp))
     Row {
         TxFilter.entries.forEach { f ->
@@ -241,7 +264,7 @@ private fun ColumnScope.HistoryTab(accountId: String, onAccountChange: (String) 
         }
     }
 
-    val items = repo.transactionsOf(account.id)
+    val items = results
         .filter {
             when (filter) {
                 TxFilter.All -> true
@@ -251,9 +274,21 @@ private fun ColumnScope.HistoryTab(accountId: String, onAccountChange: (String) 
         }
         .let { if (newestFirst) it else it.reversed() }
 
+    if (crossAccount) {
+        Spacer(Modifier.height(14.dp))
+        WhiteCard(color = MoaBlueLight) {
+            MoaText("⚠ 선택한 계좌 외의 거래가 함께 조회됐어요", size = 13.sp, weight = FontWeight.Bold, color = MoaBlue)
+            Spacer(Modifier.height(4.dp))
+            MoaText(
+                "SQL 인젝션으로 다른 계좌 데이터가 노출된 상태예요. 보안 실습 설정에서 '거래내역 SQL 인젝션'을 끄면 막혀요.",
+                size = 12.sp, color = MoaTextSecondary, lineHeight = 18.sp,
+            )
+        }
+    }
+
     Spacer(Modifier.height(18.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        MoaText("최근 거래 ${items.size}건", size = 12.sp, color = MoaTextTertiary, modifier = Modifier.weight(1f))
+        MoaText("조회 결과 ${items.size}건", size = 12.sp, color = MoaTextTertiary, modifier = Modifier.weight(1f))
         Row(Modifier.clickable { newestFirst = !newestFirst }, verticalAlignment = Alignment.CenterVertically) {
             MoaText(if (newestFirst) "최신순" else "과거순", size = 12.sp, color = MoaTextSecondary)
             Icon(Icons.Filled.KeyboardArrowDown, null, tint = MoaTextSecondary, modifier = Modifier.size(14.dp))
