@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter
  */
 object MoaRepository {
 
-    val banks = listOf("한빛은행", "새봄은행", "늘봄은행", "모아은행", "하나로은행")
+    val banks = listOf("한빛은행", "새봄은행", "늘봄은행", "Labbit은행", "하나로은행")
 
     var user by mutableStateOf(
         UserProfile(name = "김모아", phone = "010-0000-1234", email = "moa@example.com", joinedDays = 128)

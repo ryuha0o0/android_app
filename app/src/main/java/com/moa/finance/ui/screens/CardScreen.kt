@@ -98,7 +98,7 @@ private fun CheckCardVisual(modifier: Modifier = Modifier) {
             .padding(18.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            MoaText("모아", size = 15.sp, weight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
+            MoaText("Labbit", size = 15.sp, weight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
             Icon(Icons.Outlined.Contactless, contentDescription = null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.height(16.dp))
@@ -122,7 +122,7 @@ private fun ColumnScope.CardApplyTab() {
     Spacer(Modifier.height(26.dp))
     CheckCardVisual(Modifier.align(Alignment.CenterHorizontally))
     Spacer(Modifier.height(18.dp))
-    MoaText("모아 데일리 체크", size = 17.sp, weight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
+    MoaText("Labbit 데일리 체크", size = 17.sp, weight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
     Spacer(Modifier.height(6.dp))
     MoaText(
         "연회비 없음 · 국내전용 · 후불교통 선택",
@@ -172,7 +172,7 @@ private fun ColumnScope.MyCardTab() {
 
     Spacer(Modifier.height(22.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        MoaText("모아 데일리 체크", size = 20.sp, weight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+        MoaText("Labbit 데일리 체크", size = 20.sp, weight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         if (repo.cardPaused) Tag("일시정지", container = Color(0xFFFDECEC), content = Color(0xFFE5484D)) else Tag("정상 이용")
     }
     Spacer(Modifier.height(18.dp))

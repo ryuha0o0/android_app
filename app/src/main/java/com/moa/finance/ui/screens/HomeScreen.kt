@@ -95,7 +95,7 @@ fun HomeScreen(
                 .padding(start = ScreenPadding, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MoaText("모아", size = 22.sp, weight = FontWeight.ExtraBold, color = MoaBlue, modifier = Modifier.weight(1f))
+            MoaText("Labbit", size = 22.sp, weight = FontWeight.ExtraBold, color = MoaBlue, modifier = Modifier.weight(1f))
             IconButton(onClick = { showMessage("새로운 알림이 없어요") }) {
                 Icon(Icons.Outlined.Notifications, contentDescription = "알림", tint = MoaTextPrimary)
             }

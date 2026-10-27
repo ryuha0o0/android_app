@@ -119,7 +119,7 @@ fun MoaApp() {
                             navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } }
                         },
                         onSignUp = { navController.navigate(Routes.SIGN_UP) },
-                        onBack = { showMessage("모아에 오신 걸 환영해요") },
+                        onBack = { showMessage("Labbit에 오신 걸 환영해요") },
                     )
                 }
                 composable(Routes.SIGN_UP) {

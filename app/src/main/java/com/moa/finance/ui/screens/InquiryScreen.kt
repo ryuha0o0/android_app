@@ -420,7 +420,7 @@ private fun ColumnScope.ClosedAccountsTab() {
     MoaText("해지한 계좌도 한눈에", size = 22.sp, weight = FontWeight.ExtraBold)
     Spacer(Modifier.height(10.dp))
     MoaText(
-        "모아에 연결했던 계좌 중\n해지 내역이 있는 계좌를 확인할 수 있어요.",
+        "Labbit에 연결했던 계좌 중\n해지 내역이 있는 계좌를 확인할 수 있어요.",
         size = 13.sp, color = MoaTextSecondary, lineHeight = 20.sp,
     )
     Spacer(Modifier.height(20.dp))

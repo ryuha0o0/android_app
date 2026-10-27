@@ -197,7 +197,7 @@ fun SignUpScreen(onBack: () -> Unit, onComplete: () -> Unit) {
             onDismissRequest = { showDone = false },
             containerColor = MoaSurface,
             title = { Text("본인 확인 완료", fontWeight = FontWeight.Bold) },
-            text = { Text("${name.trim()}님, 본인 확인이 끝났어요.\n금융인증서를 연결하고 모아를 시작해 볼까요?") },
+            text = { Text("${name.trim()}님, 본인 확인이 끝났어요.\n금융인증서를 연결하고 Labbit을 시작해 볼까요?") },
             confirmButton = {
                 TextButton(onClick = { showDone = false; onComplete() }) { Text("시작하기", color = MoaBlue) }
             },

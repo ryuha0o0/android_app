@@ -86,7 +86,7 @@ fun MyPageScreen(
                 Column(Modifier.weight(1f)) {
                     MoaText("${user.name}님", size = 22.sp, weight = FontWeight.ExtraBold)
                     Spacer(Modifier.height(4.dp))
-                    MoaText("모아와 함께한 지 ${user.joinedDays}일", size = 12.sp, color = MoaTextTertiary)
+                    MoaText("Labbit과 함께한 지 ${user.joinedDays}일", size = 12.sp, color = MoaTextTertiary)
                 }
                 IconButton(onClick = { showMessage("앱 설정은 준비 중이에요") }) {
                     Icon(Icons.Outlined.Settings, contentDescription = "설정", tint = MoaTextSecondary)

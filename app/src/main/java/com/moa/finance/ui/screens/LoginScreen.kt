@@ -60,7 +60,7 @@ fun LoginScreen(
                 .padding(horizontal = ScreenPadding)
         ) {
             Spacer(Modifier.height(28.dp))
-            MoaText("모아", size = 28.sp, weight = FontWeight.ExtraBold, color = MoaBlue)
+            MoaText("Labbit", size = 28.sp, weight = FontWeight.ExtraBold, color = MoaBlue)
             Spacer(Modifier.height(16.dp))
             MoaText("내 모든 금융을,\n가볍게 모아.", size = 26.sp, weight = FontWeight.ExtraBold, lineHeight = 36.sp)
             Spacer(Modifier.height(12.dp))
