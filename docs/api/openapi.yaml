@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Moa Finance API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     모아 금융 앱 백엔드 API 명세 (초안).
 
@@ -12,6 +12,10 @@ info:
     - 로그인 이후 API는 `Authorization: Bearer <accessToken>` 헤더가 필요합니다.
     - 돈이 움직이는 요청(이체·출금)은 `Idempotency-Key` 헤더가 필수이며, 같은 키로 다시 보내면 처음 결과를 그대로 돌려줍니다.
     - 목록 API는 커서 방식으로 페이지를 나눕니다(`cursor`, `size`, 응답의 `nextCursor`).
+
+    v1.1 추가: 기기관리(바인딩·해제), 활성 세션 관리, 거래 추가인증 Challenge,
+    비밀번호 재설정(OTP), 메인창(검색·공지·게시판·파일·고객센터).
+    보안 점검항목 매핑은 docs/security/SECURITY-LAB.md 를 참고하세요.
 servers:
   - url: https://api.moa.example/v1
     description: 운영 (예정)
@@ -36,6 +40,12 @@ tags:
     description: 카드 없는 출금
   - name: Cards
     description: 카드 신청 · 관리
+  - name: Devices
+    description: 기기 바인딩 · 해제
+  - name: Sessions
+    description: 활성 세션 관리
+  - name: Board
+    description: 메인창 · 검색 · 공지 · 게시판 · 고객센터
   - name: Meta
     description: 금융기관 · 약관 등 기준 정보
 
@@ -926,6 +936,358 @@ paths:
                   level: { type: string, enum: [SAFE, WARNING, DANGER] }
                   message: { type: string }
 
+  # ───────────────────────── Auth: 비밀번호 재설정 ─────────────────────────
+  /auth/password-reset:
+    post:
+      tags: [Auth]
+      summary: 비밀번호 재설정 요청 (OTP 발송)
+      description: |
+        본인확인 후 OTP를 발송합니다. 초기화 비밀번호를 서버가 만들어 주지 않고(유추 방지),
+        OTP 검증 뒤 사용자가 새 비밀번호를 직접 설정합니다. 요청은 횟수 제한을 둡니다(자동화공격 방지).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, phone]
+              properties:
+                userId: { type: string }
+                phone: { type: string, example: '010-0000-1234' }
+      responses:
+        '201':
+          description: OTP 발송됨
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resetId: { type: string }
+                  expiresAt: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /auth/password-reset/confirm:
+    post:
+      tags: [Auth]
+      summary: OTP 확인 후 새 비밀번호 설정
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resetId, otp, newPassword]
+              properties:
+                resetId: { type: string }
+                otp: { type: string, example: '123456' }
+                newPassword: { type: string, format: password, minLength: 8, maxLength: 20 }
+      responses:
+        '204': { description: 변경됨 }
+        '400': { $ref: '#/components/responses/Error' }
+
+  # ───────────────────────── Devices (기기 바인딩) ─────────────────────────
+  /devices:
+    get:
+      tags: [Devices]
+      summary: 바인딩된 기기 목록 (API 15)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Device' }
+    post:
+      tags: [Devices]
+      summary: 현재 기기 바인딩/공개키 등록 (API 8, 16)
+      description: |
+        기기 식별자(UUID)는 암호학적 난수로 생성합니다(유추 금지). 생체/인증서 공개키를 함께 등록하고,
+        서버는 공개키만 보관합니다. 기기 변경 시 기존 기기의 세션·자동로그인 토큰을 무효화합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceUuid, publicKey]
+              properties:
+                deviceUuid: { type: string, description: 128bit 난수 기반 UUID }
+                deviceName: { type: string, example: 'Galaxy S24' }
+                publicKey: { type: string, description: Keystore 공개키(Base64) }
+      responses:
+        '201':
+          description: 등록됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
+
+  /devices/{deviceId}:
+    delete:
+      tags: [Devices]
+      summary: 기기 바인딩 해제 (API 17)
+      description: 소유자 본인만 해제할 수 있으며, 해당 기기의 세션·자동로그인 토큰을 즉시 무효화합니다.
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 해제됨 }
+        '403': { $ref: '#/components/responses/Error' }
+
+  # ───────────────────────── Sessions (활성 세션) ─────────────────────────
+  /sessions:
+    get:
+      tags: [Sessions]
+      summary: 활성 세션 목록 (API 20)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ActiveSession' }
+
+  /sessions/{sessionId}:
+    delete:
+      tags: [Sessions]
+      summary: 특정 세션 강제 종료 (API 21)
+      description: 본인 세션만 종료할 수 있습니다(부적절한 인가 방지). 세션 ID는 예측 불가한 난수입니다.
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 종료됨 }
+        '403': { $ref: '#/components/responses/Error' }
+
+  # ───────────────────────── Transfers: 추가인증 Challenge ─────────────────────────
+  /transfers/challenge:
+    post:
+      tags: [Transfers]
+      summary: 이체 추가인증 Challenge 발급 (API 27)
+      description: |
+        거래정보(출금계좌·받는계좌·금액)를 묶은 1회성 난수 challenge를 발급합니다.
+        클라이언트는 기기 개인키로 challenge+거래정보를 서명(결합서명, API 28)해 이체 요청에 담습니다.
+        → 거래정보 무결성 + 인증정보 재사용·고정 방지.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fromAccountId, inquiryId, amount]
+              properties:
+                fromAccountId: { type: string }
+                inquiryId: { type: string }
+                amount: { type: integer, format: int64 }
+      responses:
+        '201':
+          description: 발급됨
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  challengeId: { type: string }
+                  challenge: { type: string, description: 서명 대상 1회성 난수(Base64) }
+                  expiresAt: { type: string, format: date-time }
+
+  # ───────────────────────── Board (메인창) ─────────────────────────
+  /search:
+    get:
+      tags: [Board]
+      summary: 통합검색 (계좌·이체·카드·게시글)
+      description: 검색어는 서버에서 escape/파라미터 바인딩 처리합니다(XSS·SQLi 방지).
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type: { type: string, enum: [ACCOUNT, TRANSFER, CARD, POST, NOTICE] }
+                        title: { type: string }
+                        ref: { type: string }
+
+  /notices:
+    get:
+      tags: [Board]
+      summary: 공지사항 목록
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Notice' }
+                  nextCursor: { type: string, nullable: true }
+
+  /notices/{noticeId}:
+    get:
+      tags: [Board]
+      summary: 공지 상세
+      security: []
+      parameters:
+        - { name: noticeId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Notice' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /posts:
+    get:
+      tags: [Board]
+      summary: 게시판 글 목록
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Post' }
+                  nextCursor: { type: string, nullable: true }
+    post:
+      tags: [Board]
+      summary: 게시글 작성
+      description: 본문은 저장·출력 시 escape 처리합니다(저장형 XSS 방지).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, body]
+              properties:
+                title: { type: string, maxLength: 100 }
+                body: { type: string }
+      responses:
+        '201':
+          description: 작성됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Post' }
+
+  /posts/{postId}/attachments:
+    post:
+      tags: [Board]
+      summary: 게시글 첨부파일 업로드
+      description: |
+        확장자/콘텐츠 타입 화이트리스트(jpg·png·gif·pdf·txt)만 허용하고, 실행형 파일을 거부합니다
+        (악성파일 업로드 방지). 저장 파일명은 서버가 안전하게 재생성합니다.
+      parameters:
+        - { name: postId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: 업로드됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Attachment' }
+        '415': { $ref: '#/components/responses/Error' }
+
+  /attachments/{fileId}:
+    get:
+      tags: [Board]
+      summary: 첨부파일 다운로드
+      description: |
+        파일은 저장 시 발급한 불투명 ID로만 접근합니다. 서버는 파일명을 경로로 결합하지 않고
+        정규화 후 기준 디렉터리 하위인지 검증합니다(경로추적 방지).
+      parameters:
+        - { name: fileId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 파일
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /inquiries:
+    get:
+      tags: [Board]
+      summary: 내 고객센터 문의 목록
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Inquiry' }
+    post:
+      tags: [Board]
+      summary: 고객센터 문의 등록
+      description: 제목·내용은 escape 처리하며, 상태변경 요청에는 CSRF 토큰을 요구합니다.
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, body]
+              properties:
+                title: { type: string }
+                body: { type: string }
+      responses:
+        '201':
+          description: 등록됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Inquiry' }
+        '403': { $ref: '#/components/responses/Error' }
+
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1207,3 +1569,60 @@ components:
         required: { type: boolean }
         version: { type: string, example: '2026.10' }
         url: { type: string, format: uri, description: 약관 전문 링크 }
+
+    Device:
+      type: object
+      properties:
+        id: { type: string }
+        deviceUuid: { type: string }
+        deviceName: { type: string, example: 'Galaxy S24' }
+        current: { type: boolean, description: 현재 요청 기기 여부 }
+        boundAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+
+    ActiveSession:
+      type: object
+      properties:
+        sessionId: { type: string, description: 예측 불가한 난수 ID }
+        deviceName: { type: string }
+        ipMasked: { type: string, example: '211.xx.xx.10' }
+        current: { type: boolean }
+        issuedAt: { type: string, format: date-time }
+        lastActivityAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+
+    Notice:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        body: { type: string }
+        date: { type: string, format: date }
+
+    Post:
+      type: object
+      properties:
+        id: { type: integer }
+        author: { type: string }
+        title: { type: string }
+        body: { type: string }
+        attachment: { $ref: '#/components/schemas/Attachment' }
+        createdAt: { type: string, format: date-time }
+
+    Attachment:
+      type: object
+      nullable: true
+      properties:
+        fileId: { type: string, description: 불투명 식별자(파일명·경로 비노출) }
+        originalName: { type: string, example: 'memo.txt' }
+        contentType: { type: string, example: 'text/plain' }
+        size: { type: integer }
+
+    Inquiry:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        body: { type: string }
+        answered: { type: boolean }
+        createdAt: { type: string, format: date-time }

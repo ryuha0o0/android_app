@@ -1,4 +1,4 @@
-# 모아 API 명세 (초안)
+# Labbit API 명세 (초안) · v1.1
 
 서버가 아직 없어서 **명세만** 정의한 상태입니다. 전체 스펙은 [`openapi.yaml`](openapi.yaml)(OpenAPI 3.0)에 있고,
 [Swagger Editor](https://editor.swagger.io)에 붙여 넣으면 문서로 보거나 서버 코드를 생성할 수 있습니다.
@@ -52,14 +52,25 @@
 | | 한도제한 정보 / 해제 신청 | `GET /accounts/{id}/limit`, `POST /accounts/{id}/limit-release-requests` |
 | | 연결 해제 | `DELETE /accounts/{id}` |
 
+| 메인 — 검색창 | 통합검색 | `GET /search?q=` |
+| 메인 — 공지사항 | 공지 목록·상세 | `GET /notices`, `GET /notices/{id}` |
+| 메인 — 게시판 | 글 목록·작성 | `GET·POST /posts` |
+| 메인 — 게시판 첨부 | 업로드·다운로드 | `POST /posts/{id}/attachments`, `GET /attachments/{fileId}` |
+| 메인 — 고객센터 | 문의 목록·등록 | `GET·POST /inquiries` |
+| 마이페이지 — 기기 관리 | 바인딩 기기 목록·등록·해제 | `GET·POST /devices`, `DELETE /devices/{id}` |
+| 마이페이지 — 세션 관리 | 활성 세션·강제 종료 | `GET /sessions`, `DELETE /sessions/{id}` |
+| 로그인 — 비밀번호 재설정 | OTP 요청·확인 | `POST /auth/password-reset`, `POST /auth/password-reset/confirm` |
+
 ## 이체 흐름
 1. `POST /transfers/recipient-inquiry` — 은행·계좌번호로 예금주(`김하늘`)를 확인하고 `inquiryId`를 받음 (5분 유효)
 2. 화면에서 "김하늘님께 50,000원을 보낼까요?" 확인
-3. `POST /transfers` — `inquiryId`, 금액, 추가 인증(계좌 비밀번호/생체/인증서)과 `Idempotency-Key`를 보냄
-4. 응답의 `TransferResult`로 이체 완료 화면을 그림 (조회 > 이체결과와 같은 모델)
+3. `POST /transfers/challenge` — 거래정보를 묶은 1회성 challenge 발급 (API27)
+4. `POST /transfers` — `inquiryId`, 금액, 기기키 결합서명(challenge 서명, API28), `Idempotency-Key`를 보냄
+5. 응답의 `TransferResult`로 이체 완료 화면을 그림 (조회 > 이체결과와 같은 모델)
 
 대표 오류: `INSUFFICIENT_BALANCE`(잔액 부족), `LIMIT_EXCEEDED`(한도 초과), `INQUIRY_EXPIRED`(예금주 조회 만료), `WRONG_PASSWORD`, `DUPLICATE_REQUEST`
 
 ## 앱 연결 계획 (서버가 생기면)
-현재 앱은 `data/MoaRepository.kt`의 메모리 데이터로 동작합니다. 서버가 준비되면
+현재 앱은 서버 없이 로컬(메모리·SQLite·파일)로 동작하는 보안 실습 앱입니다. 취약/안전 토글과 점검항목 매핑은 `docs/security/SECURITY-LAB.md` 참고.
+이 명세는 그 로컬 동작을 실제 서버 API로 옮길 때의 계약(안전한 기준)을 정의합니다. 서버가 준비되면
 Retrofit 인터페이스와 DTO를 이 명세에서 만들고, `MoaRepository`의 각 함수를 해당 API 호출로 바꾸면 됩니다.
