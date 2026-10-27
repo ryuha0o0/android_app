@@ -1,0 +1,1209 @@
+openapi: 3.0.3
+info:
+  title: Moa Finance API
+  version: 1.0.0
+  description: |
+    모아 금융 앱 백엔드 API 명세 (초안).
+
+    공통 규칙
+    - 금액은 모두 원(KRW) 단위 정수(int64)입니다.
+    - 날짜는 `YYYY-MM-DD`, 일시는 ISO-8601(+09:00) 형식입니다.
+    - 응답의 계좌번호·카드번호는 마스킹된 값입니다. 원본 번호는 응답에 담지 않습니다.
+    - 로그인 이후 API는 `Authorization: Bearer <accessToken>` 헤더가 필요합니다.
+    - 돈이 움직이는 요청(이체·출금)은 `Idempotency-Key` 헤더가 필수이며, 같은 키로 다시 보내면 처음 결과를 그대로 돌려줍니다.
+    - 목록 API는 커서 방식으로 페이지를 나눕니다(`cursor`, `size`, 응답의 `nextCursor`).
+servers:
+  - url: https://api.moa.example/v1
+    description: 운영 (예정)
+  - url: https://dev-api.moa.example/v1
+    description: 개발 (예정)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+    description: 로그인 · 토큰
+  - name: SignUp
+    description: 회원가입 · 본인 확인
+  - name: User
+    description: 회원정보
+  - name: Accounts
+    description: 계좌 조회 · 관리
+  - name: Transfers
+    description: 이체 · 이체결과
+  - name: Withdrawals
+    description: 카드 없는 출금
+  - name: Cards
+    description: 카드 신청 · 관리
+  - name: Meta
+    description: 금융기관 · 약관 등 기준 정보
+
+paths:
+  # ───────────────────────── Auth ─────────────────────────
+  /auth/login/certificate:
+    post:
+      tags: [Auth]
+      summary: 금융인증서로 로그인
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [certificateId, signedData, deviceId]
+              properties:
+                certificateId: { type: string, description: 금융인증서 식별자 }
+                signedData: { type: string, description: 인증서로 서명한 로그인 챌린지 }
+                deviceId: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/TokenResponse' }
+        '401': { $ref: '#/components/responses/Error' }
+
+  /auth/login/biometric:
+    post:
+      tags: [Auth]
+      summary: 등록한 기기 생체인증으로 로그인
+      description: 생체정보는 기기 안에서만 확인하고, 서버에는 기기 키로 서명한 값만 보냅니다.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId, challenge, signature]
+              properties:
+                deviceId: { type: string }
+                challenge: { type: string, description: '/auth/challenge 에서 받은 값' }
+                signature: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/TokenResponse' }
+        '401': { $ref: '#/components/responses/Error' }
+
+  /auth/challenge:
+    post:
+      tags: [Auth]
+      summary: 로그인 서명용 일회성 챌린지 발급
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  challenge: { type: string }
+                  expiresAt: { type: string, format: date-time }
+
+  /auth/token/refresh:
+    post:
+      tags: [Auth]
+      summary: 액세스 토큰 재발급
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/TokenResponse' }
+        '401': { $ref: '#/components/responses/Error' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 로그아웃 (리프레시 토큰 폐기)
+      responses:
+        '204': { description: 로그아웃됨 }
+
+  /auth/biometric:
+    post:
+      tags: [Auth]
+      summary: 기기 생체인증 등록
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId, publicKey]
+              properties:
+                deviceId: { type: string }
+                publicKey: { type: string, description: 기기 보안 영역에서 만든 공개키 }
+      responses:
+        '201': { description: 등록됨 }
+    delete:
+      tags: [Auth]
+      summary: 기기 생체인증 해제
+      parameters:
+        - { name: deviceId, in: query, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 해제됨 }
+
+  # ───────────────────────── SignUp ─────────────────────────
+  /signup/identity-verifications:
+    post:
+      tags: [SignUp]
+      summary: 휴대폰 본인 확인 요청 (인증번호 발송)
+      description: 회원가입 1/3 단계. 필수 약관에 모두 동의해야 요청할 수 있습니다.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, carrier, agreedTermIds]
+              properties:
+                name: { type: string, example: 김모아 }
+                phone: { type: string, example: '010-0000-1234' }
+                carrier: { type: string, enum: [SKT, KT, LGU, MVNO] }
+                agreedTermIds:
+                  type: array
+                  items: { type: string }
+                  example: [service, privacy, identity]
+      responses:
+        '201':
+          description: 인증번호 발송됨
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verificationId: { type: string }
+                  expiresAt: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /signup/identity-verifications/{verificationId}/confirm:
+    post:
+      tags: [SignUp]
+      summary: 인증번호 확인
+      security: []
+      parameters:
+        - { name: verificationId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, example: '123456' }
+      responses:
+        '200':
+          description: 본인 확인 완료
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  signupToken: { type: string, description: 가입 완료 요청에 쓰는 임시 토큰 }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /signup:
+    post:
+      tags: [SignUp]
+      summary: 가입 완료 (금융인증서 연결)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signupToken, certificateId, password, deviceId]
+              properties:
+                signupToken: { type: string }
+                certificateId: { type: string }
+                password: { type: string, format: password, description: 회원 비밀번호 (영문·숫자·특수문자 8~20자) }
+                email: { type: string, format: email }
+                deviceId: { type: string }
+      responses:
+        '201': { $ref: '#/components/responses/TokenResponse' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  # ───────────────────────── User ─────────────────────────
+  /users/me:
+    get:
+      tags: [User]
+      summary: 내 정보 (마이페이지, 홈 인사말)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+    patch:
+      tags: [User]
+      summary: 기본정보 수정 (연락처 · 이메일)
+      description: 휴대폰 번호를 바꾸면 본인 확인 토큰이 필요합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: { type: string }
+                phoneVerificationToken: { type: string }
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: 수정됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /users/me/password:
+    put:
+      tags: [User]
+      summary: 회원 비밀번호 변경
+      description: 금융인증서와 계좌 비밀번호는 바뀌지 않습니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password, minLength: 8, maxLength: 20 }
+      responses:
+        '204': { description: 변경됨 }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /users/me/notification-settings:
+    get:
+      tags: [User]
+      summary: 알림 설정 조회
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationSettings' }
+    put:
+      tags: [User]
+      summary: 알림 설정 변경
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationSettings' }
+      responses:
+        '200':
+          description: 변경됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationSettings' }
+
+  # ───────────────────────── Accounts ─────────────────────────
+  /accounts:
+    get:
+      tags: [Accounts]
+      summary: 연결된 계좌 목록과 총 잔액 (홈, 조회 > 전체계좌)
+      parameters:
+        - name: institutionCode
+          in: query
+          description: 금융기관 필터. 없으면 모든 금융기관.
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalBalance: { type: integer, format: int64, example: 13745800 }
+                  refreshedAt: { type: string, format: date-time }
+                  accounts:
+                    type: array
+                    items: { $ref: '#/components/schemas/Account' }
+
+  /accounts/refresh:
+    post:
+      tags: [Accounts]
+      summary: 잔액 새로고침 (금융기관에서 다시 불러오기)
+      responses:
+        '202': { description: 새로고침 요청됨. 완료 후 /accounts 를 다시 조회 }
+
+  /accounts/{accountId}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Accounts]
+      summary: 계좌 상세 (적금 상세보기 포함)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountDetail' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Accounts]
+      summary: 계좌 별명 변경
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nickname]
+              properties:
+                nickname: { type: string, maxLength: 15, example: 생활비 통장 }
+      responses:
+        '200':
+          description: 변경됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+    delete:
+      tags: [Accounts]
+      summary: 계좌 연결 해제
+      description: 대표계좌는 해제할 수 없습니다(409 PRIMARY_ACCOUNT).
+      responses:
+        '204': { description: 해제됨 }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /accounts/primary:
+    put:
+      tags: [Accounts]
+      summary: 대표계좌 설정
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string }
+      responses:
+        '204': { description: 설정됨 }
+
+  /accounts/{accountId}/transactions:
+    get:
+      tags: [Accounts]
+      summary: 거래내역 (조회 > 거래내역)
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - name: type
+          in: query
+          schema: { type: string, enum: [ALL, DEPOSIT, WITHDRAWAL], default: ALL }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [LATEST, OLDEST], default: LATEST }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCount: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Transaction' }
+                  nextCursor: { type: string, nullable: true }
+
+  /accounts/{accountId}/password:
+    put:
+      tags: [Accounts]
+      summary: 계좌 비밀번호 변경
+      description: 계좌 비밀번호(숫자 4자리)는 보안 키패드로 입력받아 암호화한 값을 보냅니다.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [encryptedCurrentPin, encryptedNewPin]
+              properties:
+                encryptedCurrentPin: { type: string }
+                encryptedNewPin: { type: string }
+      responses:
+        '204': { description: 변경됨 }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /accounts/{accountId}/limit:
+    get:
+      tags: [Accounts]
+      summary: 한도제한 계좌 정보
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountLimit' }
+
+  /accounts/{accountId}/limit-release-requests:
+    post:
+      tags: [Accounts]
+      summary: 한도제한 해제 신청
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [purpose]
+              properties:
+                purpose: { type: string, enum: [SALARY, BUSINESS, OTHER], description: 거래 목적 }
+                documents:
+                  type: array
+                  items: { type: string, format: binary }
+                  description: 증빙서류
+      responses:
+        '201':
+          description: 신청 접수됨
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requestId: { type: string }
+                  status: { type: string, enum: [RECEIVED, REVIEWING, APPROVED, REJECTED] }
+                  expectedResultAt: { type: string, format: date }
+
+  /closed-accounts:
+    get:
+      tags: [Accounts]
+      summary: 해지계좌 목록 (조회 > 해지계좌)
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ClosedAccount' }
+
+  # ───────────────────────── Transfers ─────────────────────────
+  /transfers/recipient-inquiry:
+    post:
+      tags: [Transfers]
+      summary: 받는 분 계좌 확인 (예금주 조회)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [institutionCode, accountNumber]
+              properties:
+                institutionCode: { type: string, example: SAEBOM }
+                accountNumber: { type: string, example: '220-145-005678' }
+      responses:
+        '200':
+          description: 확인됨
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inquiryId: { type: string, description: 이체 요청에 함께 보내는 조회 ID (5분 유효) }
+                  holderName: { type: string, example: 김하늘 }
+                  institutionName: { type: string }
+                  maskedNumber: { type: string }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /transfers/recent-recipients:
+    get:
+      tags: [Transfers]
+      summary: 최근 / 자주 쓰는 받는 분
+      parameters:
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Recipient' }
+
+  /transfers/limits:
+    get:
+      tags: [Transfers]
+      summary: 이체 한도와 오늘 남은 한도
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  perTransaction: { type: integer, format: int64, example: 1000000 }
+                  daily: { type: integer, format: int64, example: 1000000 }
+                  dailyRemaining: { type: integer, format: int64 }
+                  fee: { type: integer, format: int64, example: 0 }
+
+  /transfers:
+    post:
+      tags: [Transfers]
+      summary: 이체 실행
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fromAccountId, inquiryId, amount, authentication]
+              properties:
+                fromAccountId: { type: string }
+                inquiryId: { type: string, description: 받는 분 계좌 확인에서 받은 ID }
+                amount: { type: integer, format: int64, minimum: 1, example: 50000 }
+                recipientMemo: { type: string, maxLength: 10, description: '받는 분 통장 표시 (기본: 보내는 사람 이름)' }
+                myMemo: { type: string, maxLength: 10, description: 내 통장 표시 }
+                authentication: { $ref: '#/components/schemas/TransactionAuth' }
+      responses:
+        '201':
+          description: 이체 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferResult' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    get:
+      tags: [Transfers]
+      summary: 이체결과 목록 (조회 > 이체결과)
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TransferResult' }
+                  nextCursor: { type: string, nullable: true }
+
+  /transfers/{transferId}:
+    get:
+      tags: [Transfers]
+      summary: 이체결과 상세
+      parameters:
+        - { name: transferId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferResult' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /transfers/{transferId}/receipt:
+    get:
+      tags: [Transfers]
+      summary: 이체확인증 (PDF)
+      parameters:
+        - { name: transferId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 이체확인증
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+
+  # ───────────────────────── Withdrawals ─────────────────────────
+  /withdrawals/cardless:
+    post:
+      tags: [Withdrawals]
+      summary: 카드 없는 출금 코드 발급 (이체/출금 > 출금)
+      description: 만원 단위만 가능합니다. 코드를 발급하는 시점에 금액을 묶어 두고, 만료되면 풀어 줍니다.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fromAccountId, amount, authentication]
+              properties:
+                fromAccountId: { type: string }
+                amount: { type: integer, format: int64, multipleOf: 10000, minimum: 10000 }
+                authentication: { $ref: '#/components/schemas/TransactionAuth' }
+      responses:
+        '201':
+          description: 발급됨
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  withdrawalId: { type: string }
+                  code: { type: string, example: '482913' }
+                  amount: { type: integer, format: int64 }
+                  expiresAt: { type: string, format: date-time, description: 발급 후 30분 }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /withdrawals/cardless/{withdrawalId}:
+    delete:
+      tags: [Withdrawals]
+      summary: 출금 코드 취소
+      parameters:
+        - { name: withdrawalId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 취소됨 }
+
+  # ───────────────────────── Cards ─────────────────────────
+  /card-products:
+    get:
+      tags: [Cards]
+      summary: 신청 가능한 카드 상품 (카드 > 카드 신청)
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CardProduct' }
+
+  /card-applications:
+    post:
+      tags: [Cards]
+      summary: 카드 신청
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, settlementAccountId, agreedTermIds]
+              properties:
+                productId: { type: string, example: moa-daily-check }
+                settlementAccountId: { type: string }
+                postpaidTransit: { type: boolean, description: 후불교통 기능 }
+                deliveryAddress: { $ref: '#/components/schemas/Address' }
+                agreedTermIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        '201':
+          description: 신청 접수됨
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  applicationId: { type: string }
+                  status: { type: string, enum: [RECEIVED, ISSUING, SHIPPED, DELIVERED, REJECTED] }
+
+  /cards:
+    get:
+      tags: [Cards]
+      summary: 내 카드 목록 (카드 > 내 카드 관리)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Card' }
+
+  /cards/{cardId}/usage-summary:
+    get:
+      tags: [Cards]
+      summary: 월 이용금액과 예상 캐시백
+      parameters:
+        - $ref: '#/components/parameters/CardId'
+        - name: month
+          in: query
+          required: true
+          schema: { type: string, pattern: '^\d{4}-\d{2}$', example: '2026-10' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  month: { type: string }
+                  totalAmount: { type: integer, format: int64, example: 324500 }
+                  expectedCashback: { type: integer, format: int64, example: 4800 }
+                  asOf: { type: string, format: date }
+
+  /cards/{cardId}/transactions:
+    get:
+      tags: [Cards]
+      summary: 카드 이용내역
+      parameters:
+        - $ref: '#/components/parameters/CardId'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CardTransaction' }
+                  nextCursor: { type: string, nullable: true }
+
+  /cards/{cardId}/settlement-account:
+    put:
+      tags: [Cards]
+      summary: 결제계좌 변경
+      parameters:
+        - $ref: '#/components/parameters/CardId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string }
+      responses:
+        '204': { description: 변경됨 }
+
+  /cards/{cardId}/suspension:
+    put:
+      tags: [Cards]
+      summary: 카드 일시정지 / 해제
+      parameters:
+        - $ref: '#/components/parameters/CardId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [suspended]
+              properties:
+                suspended: { type: boolean }
+      responses:
+        '200':
+          description: 변경됨
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Card' }
+
+  /cards/{cardId}/loss-reports:
+    post:
+      tags: [Cards]
+      summary: 분실신고 (선택 시 재발급 신청)
+      description: 신고 즉시 카드 상태가 LOST 로 바뀌어 사용이 정지됩니다.
+      parameters:
+        - $ref: '#/components/parameters/CardId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reissue: { type: boolean, default: true }
+                deliveryAddress: { $ref: '#/components/schemas/Address' }
+      responses:
+        '201':
+          description: 접수됨
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportId: { type: string }
+                  reissueApplicationId: { type: string, nullable: true }
+
+  # ───────────────────────── Meta ─────────────────────────
+  /institutions:
+    get:
+      tags: [Meta]
+      summary: 금융기관 목록 (받는 분 은행 선택, 금융기관 필터)
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Institution' }
+
+  /terms:
+    get:
+      tags: [Meta]
+      summary: 약관 목록
+      security: []
+      parameters:
+        - name: context
+          in: query
+          required: true
+          schema: { type: string, enum: [SIGNUP, CARD_APPLICATION] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Term' }
+
+  /security/status:
+    get:
+      tags: [Meta]
+      summary: 보안 상태 (홈 하단 '보안 상태가 안전해요')
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  level: { type: string, enum: [SAFE, WARNING, DANGER] }
+                  message: { type: string }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema: { type: string }
+    CardId:
+      name: cardId
+      in: path
+      required: true
+      schema: { type: string }
+    From:
+      name: from
+      in: query
+      description: 조회 시작일 (포함)
+      schema: { type: string, format: date, example: '2026-10-01' }
+    To:
+      name: to
+      in: query
+      description: 조회 종료일 (포함)
+      schema: { type: string, format: date, example: '2026-10-24' }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    Size:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 요청마다 새로 만든 UUID. 같은 키로 재시도하면 처음 결과를 돌려줍니다.
+      schema: { type: string, format: uuid }
+
+  responses:
+    TokenResponse:
+      description: 토큰 발급
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/TokenPair' }
+    Error:
+      description: 오류
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: 기계가 읽는 오류 코드
+          example: INSUFFICIENT_BALANCE
+          enum:
+            - INVALID_REQUEST
+            - UNAUTHORIZED
+            - TOKEN_EXPIRED
+            - FORBIDDEN
+            - NOT_FOUND
+            - VERIFICATION_FAILED
+            - VERIFICATION_EXPIRED
+            - ALREADY_REGISTERED
+            - WRONG_PASSWORD
+            - PASSWORD_POLICY
+            - INSUFFICIENT_BALANCE
+            - LIMIT_EXCEEDED
+            - RECIPIENT_NOT_FOUND
+            - INQUIRY_EXPIRED
+            - ACCOUNT_CLOSED
+            - PRIMARY_ACCOUNT
+            - DUPLICATE_REQUEST
+            - INSTITUTION_UNAVAILABLE
+            - INTERNAL_ERROR
+        message: { type: string, description: 사용자에게 보여줄 수 있는 한국어 메시지, example: 이체 가능 금액을 초과했어요 }
+        traceId: { type: string }
+
+    TokenPair:
+      type: object
+      properties:
+        accessToken: { type: string }
+        accessTokenExpiresIn: { type: integer, description: 초 단위, example: 1800 }
+        refreshToken: { type: string }
+        user: { $ref: '#/components/schemas/User' }
+
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string, example: 김모아 }
+        phone: { type: string, example: '010-0000-1234' }
+        email: { type: string, format: email }
+        identityVerified: { type: boolean }
+        joinedAt: { type: string, format: date }
+        daysSinceJoined: { type: integer, example: 128 }
+        biometricRegistered: { type: boolean }
+        certificate:
+          type: object
+          properties:
+            connected: { type: boolean }
+            expiresAt: { type: string, format: date }
+
+    NotificationSettings:
+      type: object
+      properties:
+        transfer: { type: boolean, description: 입출금 알림 }
+        card: { type: boolean, description: 카드 승인 알림 }
+        marketing: { type: boolean }
+
+    Institution:
+      type: object
+      properties:
+        code: { type: string, example: HANBIT }
+        name: { type: string, example: 한빛은행 }
+        shortName: { type: string, example: 한, description: 계좌 아이콘에 쓰는 한 글자 }
+
+    Account:
+      type: object
+      properties:
+        id: { type: string }
+        institution: { $ref: '#/components/schemas/Institution' }
+        nickname: { type: string, example: 생활비 통장 }
+        maskedNumber: { type: string, example: '110-245-••7890' }
+        type: { type: string, enum: [DEMAND_DEPOSIT, SAVINGS, INSTALLMENT] , description: '입출금 / 예금 / 적금' }
+        balance: { type: integer, format: int64, example: 3245800 }
+        isPrimary: { type: boolean }
+        transferable: { type: boolean, description: 이체 출금계좌로 쓸 수 있는지 }
+        limited: { type: boolean, description: 한도제한 계좌 여부 }
+
+    AccountDetail:
+      allOf:
+        - $ref: '#/components/schemas/Account'
+        - type: object
+          properties:
+            openedAt: { type: string, format: date }
+            interestRate: { type: number, format: double, example: 3.5 }
+            installment:
+              type: object
+              nullable: true
+              description: 적금일 때만
+              properties:
+                monthlyAmount: { type: integer, format: int64, example: 200000 }
+                maturityDate: { type: string, format: date }
+                paidCount: { type: integer }
+
+    AccountLimit:
+      type: object
+      properties:
+        limited: { type: boolean }
+        perTransaction: { type: integer, format: int64, example: 1000000 }
+        daily: { type: integer, format: int64, example: 1000000 }
+        releaseRequest:
+          type: object
+          nullable: true
+          properties:
+            requestId: { type: string }
+            status: { type: string, enum: [RECEIVED, REVIEWING, APPROVED, REJECTED] }
+
+    Transaction:
+      type: object
+      properties:
+        id: { type: string }
+        occurredAt: { type: string, format: date-time }
+        type: { type: string, enum: [DEPOSIT, WITHDRAWAL] }
+        counterparty: { type: string, example: 김하늘 }
+        method: { type: string, enum: [TRANSFER, SALARY, CHECK_CARD, ATM, INTEREST, ETC], description: '계좌이체 / 급여 / 체크카드 / ATM 출금 / 이자 / 기타' }
+        amount: { type: integer, format: int64, description: '입금은 양수, 출금은 음수', example: -50000 }
+        balanceAfter: { type: integer, format: int64 }
+        memo: { type: string }
+
+    Recipient:
+      type: object
+      properties:
+        holderName: { type: string }
+        institution: { $ref: '#/components/schemas/Institution' }
+        maskedNumber: { type: string }
+        lastTransferredAt: { type: string, format: date-time }
+        favorite: { type: boolean }
+        isMyAccount: { type: boolean }
+
+    TransactionAuth:
+      type: object
+      description: 이체·출금 추가 인증
+      required: [method, value]
+      properties:
+        method: { type: string, enum: [ACCOUNT_PIN, BIOMETRIC, CERTIFICATE] }
+        value: { type: string, description: '암호화한 계좌 비밀번호, 또는 기기 키 서명값' }
+
+    TransferResult:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [COMPLETED, PENDING, FAILED] }
+        recipientName: { type: string, example: 김하늘 }
+        recipientInstitution: { $ref: '#/components/schemas/Institution' }
+        recipientMaskedNumber: { type: string, example: '••5678' }
+        fromAccountId: { type: string }
+        fromInstitution: { $ref: '#/components/schemas/Institution' }
+        fromMaskedNumber: { type: string, example: '••7890' }
+        amount: { type: integer, format: int64, example: 50000 }
+        fee: { type: integer, format: int64, example: 0 }
+        recipientMemo: { type: string, example: 김모아 }
+        transferredAt: { type: string, format: date-time }
+        balanceAfter: { type: integer, format: int64 }
+
+    ClosedAccount:
+      type: object
+      properties:
+        institution: { $ref: '#/components/schemas/Institution' }
+        nickname: { type: string, example: 여행 준비 통장 }
+        maskedNumber: { type: string }
+        openedAt: { type: string, format: date }
+        closedAt: { type: string, format: date }
+        balanceAtClosing: { type: integer, format: int64 }
+
+    CardProduct:
+      type: object
+      properties:
+        id: { type: string, example: moa-daily-check }
+        name: { type: string, example: 모아 데일리 체크 }
+        type: { type: string, enum: [CHECK, CREDIT] }
+        annualFee: { type: integer, format: int64, example: 0 }
+        domesticOnly: { type: boolean }
+        postpaidTransitAvailable: { type: boolean }
+        benefits:
+          type: array
+          items:
+            type: object
+            properties:
+              category: { type: string, example: 커피 · 편의점 }
+              rate: { type: number, example: 5 }
+              description: { type: string }
+        conditions: { type: string, example: '전월 이용금액 20만원 이상 · 월 통합 최대 1만원' }
+
+    Card:
+      type: object
+      properties:
+        id: { type: string }
+        productId: { type: string }
+        name: { type: string, example: 모아 데일리 체크 }
+        maskedNumber: { type: string, example: '•••• •••• •••• 4821' }
+        holderName: { type: string }
+        status: { type: string, enum: [ACTIVE, SUSPENDED, LOST, EXPIRED] }
+        settlementAccount: { $ref: '#/components/schemas/Account' }
+        expiresAt: { type: string, pattern: '^\d{2}/\d{2}$', example: '10/31' }
+
+    CardTransaction:
+      type: object
+      properties:
+        id: { type: string }
+        approvedAt: { type: string, format: date-time }
+        merchant: { type: string, example: 오늘커피 }
+        amount: { type: integer, format: int64 }
+        status: { type: string, enum: [APPROVED, CANCELED] }
+        cashback: { type: integer, format: int64 }
+
+    Address:
+      type: object
+      properties:
+        zipCode: { type: string }
+        address1: { type: string }
+        address2: { type: string }
+
+    Term:
+      type: object
+      properties:
+        id: { type: string, example: service }
+        title: { type: string, example: '[필수] 서비스 이용약관' }
+        required: { type: boolean }
+        version: { type: string, example: '2026.10' }
+        url: { type: string, format: uri, description: 약관 전문 링크 }

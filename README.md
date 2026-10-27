@@ -28,3 +28,6 @@ Figma 디자인을 바탕으로 만든 Kotlin + Jetpack Compose 안드로이드 
 서버 없이 `data/MoaRepository.kt`의 메모리 데이터(디자인의 샘플 값)로 동작합니다.
 이체·출금을 하면 잔액, 거래내역, 이체결과가 실제로 갱신되고, 대표계좌 설정·계좌 별명 변경·카드 일시정지 등도 앱 안에서 반영됩니다.
 실제 서비스로 연결하려면 이 저장소 객체를 API 호출로 교체하면 됩니다.
+
+## API 명세
+서버 API 명세(OpenAPI 3.0)는 [`docs/api/openapi.yaml`](docs/api/openapi.yaml), 화면별 API 정리는 [`docs/api/README.md`](docs/api/README.md)에 있습니다.
