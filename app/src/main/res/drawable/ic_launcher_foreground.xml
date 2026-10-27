@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shield-with-check mark on a 108dp adaptive icon canvas -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,32 L72,39 L72,53 C72,64 64,73 54,76 C44,73 36,64 36,53 L36,39 Z" />
+    <path
+        android:strokeColor="#FF2E6BE6"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M46,54 L52,60 L63,48" />
+</vector>
