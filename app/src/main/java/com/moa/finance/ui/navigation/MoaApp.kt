@@ -38,6 +38,8 @@ import androidx.navigation.navArgument
 import com.moa.finance.ui.components.LocalShowMessage
 import com.moa.finance.ui.screens.SecurityLabScreen
 import com.moa.finance.ui.screens.MainBoardScreen
+import com.moa.finance.ui.screens.PasswordChangeScreen
+import com.moa.finance.ui.screens.PasswordVerifyScreen
 import com.moa.finance.security.LocalSession
 import com.moa.finance.ui.screens.PinRegisterScreen
 import com.moa.finance.ui.screens.PinLoginScreen
@@ -75,6 +77,10 @@ object Routes {
     const val SECURITY_LAB = "my/security-lab"
     const val PIN_REGISTER = "pin/register"
     const val PIN_LOGIN = "pin/login"
+    const val PW_VERIFY = "pw/verify"
+    const val PW_CHANGE = "pw/change"
+
+    fun pwChange(verified: Boolean = false) = "$PW_CHANGE?verified=$verified"
 
     fun inquiry(tab: Int = 0, accountId: String? = null) =
         "$INQUIRY?tab=$tab" + (accountId?.let { "&account=$it" } ?: "")
@@ -112,8 +118,8 @@ fun MoaApp(deepLinkHost: String? = null) {
         val autologin = session.tryAutoLogin()
         when {
             deepLinkHost == "password-change" -> {
-                // 화면 강제실행: 로그인 없이 비밀번호 변경 화면으로 진입 (인증단계 우회 실습)
-                navController.navigate(Routes.EDIT_PROFILE) { popUpTo(Routes.LOGIN) { inclusive = true } }
+                // 화면 강제실행: 본인확인(1페이지) 없이 새 비밀번호(2페이지)로 바로 진입 (인증단계 우회 실습)
+                navController.navigate(Routes.pwChange(verified = false)) { popUpTo(Routes.LOGIN) { inclusive = true } }
             }
             autologin -> navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } }
         }
@@ -258,7 +264,26 @@ fun MoaApp(deepLinkHost: String? = null) {
                     )
                 }
                 composable(Routes.EDIT_PROFILE) {
-                    EditProfileScreen(onBack = { navController.navigateUpOrHome() })
+                    EditProfileScreen(
+                        onBack = { navController.navigateUpOrHome() },
+                        onChangePassword = { navController.navigate(Routes.PW_VERIFY) },
+                    )
+                }
+                composable(Routes.PW_VERIFY) {
+                    PasswordVerifyScreen(
+                        onVerified = { navController.navigate(Routes.pwChange(verified = true)) },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(
+                    "${Routes.PW_CHANGE}?verified={verified}",
+                    arguments = listOf(navArgument("verified") { type = NavType.BoolType; defaultValue = false }),
+                ) { entry ->
+                    PasswordChangeScreen(
+                        verified = entry.arguments?.getBoolean("verified") ?: false,
+                        onDone = { navController.navigateUpOrHome() },
+                        onBack = { navController.navigateUpOrHome() },
+                    )
                 }
                 composable(Routes.ACCOUNT_MANAGE) {
                     AccountManageScreen(onBack = { navController.popBackStack() })
