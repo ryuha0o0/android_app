@@ -1,10 +1,10 @@
-# Labbit API 명세 (초안) · v1.1
+# Labbit API 명세 (초안) · v1.2
 
 서버가 아직 없어서 **명세만** 정의한 상태입니다. 전체 스펙은 [`openapi.yaml`](openapi.yaml)(OpenAPI 3.0)에 있고,
 [Swagger Editor](https://editor.swagger.io)에 붙여 넣으면 문서로 보거나 서버 코드를 생성할 수 있습니다.
 
 ## 공통 규칙
-- Base URL: `https://api.moa.example/v1` (가칭)
+- Base URL: `https://api.labbit.example/v1` (가칭)
 - 인증: `Authorization: Bearer <accessToken>` — 로그인·회원가입·기준정보 API만 예외
 - 금액: 원 단위 정수(int64). 거래내역의 `amount`는 입금 양수, 출금 음수
 - 날짜 `YYYY-MM-DD`, 일시 ISO-8601(+09:00)
@@ -60,6 +60,9 @@
 | 마이페이지 — 기기 관리 | 바인딩 기기 목록·등록·해제 | `GET·POST /devices`, `DELETE /devices/{id}` |
 | 마이페이지 — 세션 관리 | 활성 세션·강제 종료 | `GET /sessions`, `DELETE /sessions/{id}` |
 | 로그인 — 비밀번호 재설정 | OTP 요청·확인 | `POST /auth/password-reset`, `POST /auth/password-reset/confirm` |
+| 로그인 — 금융인증서 | 챌린지·서명 로그인 | `POST /auth/challenge`, `POST /auth/login/certificate` |
+| 로그인 — 간편비밀번호(6자리) | 등록·로그인·해제 | `POST·DELETE /auth/pin`, `POST /auth/login/pin` |
+| 공통 — E2E 필드 암호화 | 서버 공개키 수신 | `GET /crypto/e2e-key` (민감필드는 `EncryptedField` 봉투로 전송) |
 
 ## 이체 흐름
 1. `POST /transfers/recipient-inquiry` — 은행·계좌번호로 예금주(`김하늘`)를 확인하고 `inquiryId`를 받음 (5분 유효)

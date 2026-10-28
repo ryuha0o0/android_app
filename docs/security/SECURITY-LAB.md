@@ -6,7 +6,7 @@ Labbit은 금융보안원 전자금융기반시설 평가기준 등 점검항목
 
 - 설정 위치: 앱 실행 → **마이페이지 → 보안 실습 설정**
 - 전환: 스위치 **ON = 취약**, **OFF = 안전**. "전체 안전/취약 모드" 버튼으로 일괄 전환
-- 기본값: 모든 시나리오 **취약 모드 ON** (진단 대상)
+- 기본값: 모든 시나리오 **취약 모드 ON** (진단 대상). 현재 시나리오 20개.
 
 > ⚠️ 이 앱은 교육용이며 실제 서버·실제 금융데이터가 없습니다. 모든 처리는 기기 내부(로컬)
 > 에서만 일어납니다. 운영 배포 시에는 `security/VulnConfig.kt`와 각 `vulnerable` 분기를
@@ -74,6 +74,12 @@ Labbit은 금융보안원 전자금융기반시설 평가기준 등 점검항목
 - **인증단계 우회**: `adb shell am start -a android.intent.action.VIEW -d "labapp://password-change"` →
   취약 모드면 로그인/본인확인 없이 비밀번호 변경 화면 진입.
 - **화면 캡처**: `ALLOW_SCREEN_CAPTURE` OFF 시 스크린샷/최근 앱 미리보기 차단(FLAG_SECURE).
+- **간편비밀번호 저장(WEAK_PIN_STORAGE)**: 켜면 6자리 PIN을 솔트 없는 SHA-256으로 저장 → 레인보우 테이블로 역산 쉬움.
+  끄면 PBKDF2(솔트+10만회). (`security/PinManager.derive()`)
+- **간편비밀번호 무차별(NO_PIN_LOCKOUT)**: 켜면 PIN을 무한 시도. 끄면 5회 실패 시 60초 잠금.
+- **보안 키패드(STATIC_KEYPAD)**: 켜면 키패드 숫자 배열 고정 → 터치 좌표로 PIN 유추. 끄면 매번 셔플.
+- **E2E 미적용(NO_E2E_ENCRYPTION)**: 켜면 PIN·비밀번호를 평문으로 전송(봉투 plaintext). 끄면 AES-256-GCM+RSA-OAEP 암호화 후
+  서버(MockBackend)만 복호화. 등록 시 왕복 복호화로 동작 확인.
 
 ## 알려진 범위/한계
 - 거래내역 탭은 로컬 DB(`moa_lab.db`)를 조회하므로, 세션 중 발생한 이체는 즉시 반영되지
