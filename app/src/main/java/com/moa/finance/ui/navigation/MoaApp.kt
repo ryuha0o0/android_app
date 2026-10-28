@@ -260,6 +260,7 @@ fun MoaApp(deepLinkHost: String? = null) {
                         onLogout = {
                             session.logout()
                             navController.navigate(Routes.LOGIN) { popUpTo(navController.graph.id) { inclusive = true } }
+                            showMessage("안전하게 로그아웃되었어요")
                         },
                     )
                 }

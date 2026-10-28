@@ -47,6 +47,8 @@ import com.moa.finance.ui.components.MenuDivider
 import com.moa.finance.ui.components.MenuGroup
 import com.moa.finance.ui.components.MenuRow
 import com.moa.finance.ui.components.MoaText
+import com.moa.finance.ui.components.SecondaryButton
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import com.moa.finance.ui.components.MoaTopBar
 import com.moa.finance.ui.components.ScreenPadding
 import com.moa.finance.ui.theme.MoaBackground
@@ -126,17 +128,20 @@ fun MyPageScreen(
                 MenuRow("보안 실습 설정", Icons.Outlined.Science, "취약/안전 모드 전환 · 취약점 진단", iconTint = MoaDanger, onClick = onSecurityLab)
             }
 
-            Spacer(Modifier.height(18.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                MoaText(
-                    "로그아웃",
-                    size = 12.sp,
-                    color = MoaTextSecondary,
-                    modifier = Modifier.clickable { confirmLogout = true }.padding(vertical = 6.dp),
-                )
-                Spacer(Modifier.weight(1f))
-                MoaText("앱 버전 1.0.0 · 최신 버전", size = 11.sp, color = MoaTextTertiary)
-            }
+            Spacer(Modifier.height(24.dp))
+            SecondaryButton(
+                "로그아웃",
+                onClick = { confirmLogout = true },
+                container = MoaSurface,
+                content = MoaDanger,
+                leading = { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null, tint = MoaDanger, modifier = Modifier.size(18.dp)) },
+            )
+            Spacer(Modifier.height(14.dp))
+            MoaText(
+                "앱 버전 1.0.0 · 최신 버전",
+                size = 11.sp, color = MoaTextTertiary,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -146,6 +151,7 @@ fun MyPageScreen(
             onDismissRequest = { confirmLogout = false },
             containerColor = MoaSurface,
             title = { Text("로그아웃 할까요?", fontWeight = FontWeight.Bold) },
+            text = { Text("로그인 세션이 종료돼요. 간편비밀번호는 유지되어 다음에 바로 로그인할 수 있어요.") },
             confirmButton = {
                 TextButton(onClick = { confirmLogout = false; onLogout() }) { Text("로그아웃", color = MoaBlue, fontWeight = FontWeight.Bold) }
             },
