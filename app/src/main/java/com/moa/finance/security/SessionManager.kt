@@ -126,10 +126,11 @@ class SessionManager(private val context: Context) {
     }
 
     fun logout() {
-        // 안전: 세션·자동로그인 토큰 모두 무효화 (D-50 세션 종료)
+        // 안전: 세션·자동로그인 토큰 무효화 (D-50 세션 종료). 기기 UUID·간편비번은 유지(간편 재로그인용).
         currentSessionId = null
         boundDeviceUuid = null
         lastActivityAt = 0L
-        store.clear()
+        store.remove(SecureStore.KEY_AUTOLOGIN_TOKEN)
+        store.remove(SecureStore.KEY_USER_ID)
     }
 }

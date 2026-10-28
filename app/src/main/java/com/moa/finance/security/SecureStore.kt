@@ -42,6 +42,11 @@ class SecureStore(private val context: Context) {
 
     fun getString(key: String): String? = prefs().getString(key, null)
 
+    fun remove(key: String) {
+        plainPrefs.edit().remove(key).apply()
+        runCatching { encPrefs.edit().remove(key).apply() }
+    }
+
     fun clear() {
         plainPrefs.edit().clear().apply()
         runCatching { encPrefs.edit().clear().apply() }

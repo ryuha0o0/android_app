@@ -34,6 +34,10 @@ object VulnConfig {
         UNSAFE_FILE_UPLOAD("파일 업로드 검증 없음", "확장자/타입 검증 없이 저장 (D-20 / B-05,13)"),
         ALLOW_SCREEN_CAPTURE("화면 캡처 허용", "FLAG_SECURE 미적용, 백그라운드 노출 (D-38,60)"),
         SKIP_INTEGRITY_CHECK("무결성 점검 생략", "루팅/디버깅/에뮬레이터 탐지 무시 (D-07,14~16 / A-09,20)"),
+        NO_E2E_ENCRYPTION("E2E 미적용", "비번·PIN 등 민감 필드를 평문으로 전송 (D-47,51 / B-15)"),
+        WEAK_PIN_STORAGE("간편비번 약한 저장", "6자리 PIN을 솔트 없는 해시로 저장 (D-24,27 / C-10)"),
+        NO_PIN_LOCKOUT("간편비번 시도 제한 없음", "PIN 무한 시도 허용 (D-49 / B-12)"),
+        STATIC_KEYPAD("고정 보안키패드", "키패드 배열 고정 → 터치 위치로 PIN 유추 (D-24)"),
         ;
     }
 

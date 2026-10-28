@@ -37,6 +37,11 @@ Labbit은 금융보안원 전자금융기반시설 평가기준 등 점검항목
 | TLS·cleartext 정책 | (안전 고정) | `res/xml/network_security_config.xml`, Manifest `usesCleartextTraffic=false` | D-47,51~54 / B-15 |
 | 과도한 권한·컴포넌트 접근통제 | (안전 고정, 점검 대상) | `AndroidManifest.xml` (권한 최소화, 내부 화면 비노출) | A-03,12 / C-21,24 |
 | 백업 민감정보 제외 | (안전 고정) | `res/xml/data_extraction_rules.xml`, `allowBackup=false` | D-26 |
+| 금융인증서 로그인 | (안전 고정) | `security/CertificateManager.kt`+`KeystoreManager.kt`+`MockBackend.kt` (챌린지-응답 서명) | D-01~03,22,23,63 |
+| 간편비번 약한 저장 | `WEAK_PIN_STORAGE` | `security/PinManager.derive()` (솔트없는 해시 vs PBKDF2 10만회) | D-24,27 / C-10 |
+| 간편비번 시도 제한 없음 | `NO_PIN_LOCKOUT` | `security/PinManager.verify()` (5회 잠금) | D-49 / B-12 |
+| 고정 보안키패드 | `STATIC_KEYPAD` | `ui/components/SecureKeypad.kt` (배열 셔플 vs 고정) | D-24 |
+| E2E 필드 암호화 미적용 | `NO_E2E_ENCRYPTION` | `security/E2ECrypto.kt`+`MockBackend.e2eDecrypt` (민감필드 평문 vs RSA+AES-GCM) | D-47,51 / B-15 |
 
 ### 핵심 금융 기능 (P1)
 | 시나리오 | VulnConfig 플래그 | 구현 위치 | 점검번호 |

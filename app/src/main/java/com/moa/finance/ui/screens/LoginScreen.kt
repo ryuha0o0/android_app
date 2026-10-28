@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Face
+import androidx.compose.material.icons.outlined.Dialpad
 import androidx.compose.material.icons.outlined.GppGood
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -46,7 +47,8 @@ import com.moa.finance.ui.theme.MoaTextTertiary
 
 @Composable
 fun LoginScreen(
-    onLogin: () -> Unit,
+    onCertLogin: () -> Unit,
+    onPinLogin: () -> Unit,
     onSignUp: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -87,14 +89,14 @@ fun LoginScreen(
             }
 
             Spacer(Modifier.height(32.dp))
-            PrimaryButton("금융인증서로 로그인", onClick = onLogin)
+            PrimaryButton("금융인증서로 로그인", onClick = onCertLogin)
             Spacer(Modifier.height(10.dp))
             SecondaryButton(
-                "등록한 생체인증으로 로그인",
-                onClick = onLogin,
+                "간편비밀번호로 로그인",
+                onClick = onPinLogin,
                 container = MoaSurface,
                 content = MoaTextPrimary,
-                leading = { Icon(Icons.Outlined.Face, contentDescription = null, tint = MoaBlue, modifier = Modifier.size(20.dp)) },
+                leading = { Icon(Icons.Outlined.Dialpad, contentDescription = null, tint = MoaBlue, modifier = Modifier.size(20.dp)) },
             )
 
             Spacer(Modifier.height(20.dp))

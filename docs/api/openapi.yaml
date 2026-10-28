@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Moa Finance API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     모아 금융 앱 백엔드 API 명세 (초안).
 
@@ -15,6 +15,8 @@ info:
 
     v1.1 추가: 기기관리(바인딩·해제), 활성 세션 관리, 거래 추가인증 Challenge,
     비밀번호 재설정(OTP), 메인창(검색·공지·게시판·파일·고객센터).
+    v1.2 추가: 간편비밀번호(6자리) 등록·로그인, E2E 필드 암호화 공개키.
+    간편비밀번호·계좌비밀번호 등 민감 필드는 E2E 봉투(EncryptedField)로 전송합니다.
     보안 점검항목 매핑은 docs/security/SECURITY-LAB.md 를 참고하세요.
 servers:
   - url: https://api.moa.example/v1
@@ -1288,6 +1290,83 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
 
 
+  # ───────────────────────── Auth: 간편비밀번호(6자리) ─────────────────────────
+  /auth/pin:
+    post:
+      tags: [Auth]
+      summary: 간편비밀번호 등록 (최초 인증서 로그인 후)
+      description: |
+        6자리 PIN을 등록합니다. PIN 원문은 전송하지 않고 E2E 봉투(EncryptedField)로 보냅니다.
+        서버는 PIN을 평문 저장하지 않고 PBKDF2/scrypt 등 솔트·고반복 해시로만 보관하며,
+        해당 기기(deviceUuid)에 바인딩합니다. 6자리는 엔트로피가 낮으므로 시도 횟수 제한을 둡니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceUuid, encryptedPin]
+              properties:
+                deviceUuid: { type: string }
+                encryptedPin: { $ref: '#/components/schemas/EncryptedField' }
+      responses:
+        '201': { description: 등록됨 }
+        '400': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Auth]
+      summary: 간편비밀번호 해제
+      responses:
+        '204': { description: 해제됨 }
+
+  /auth/login/pin:
+    post:
+      tags: [Auth]
+      summary: 간편비밀번호 로그인
+      description: |
+        PIN 검증은 인증서(개인키) 사용을 잠금 해제하는 수단입니다. PIN 성공 후에도 로그인 자체는
+        챌린지-응답 서명으로 완료됩니다(POST /auth/challenge → 기기 개인키 서명 → 이 API).
+        5회 연속 실패 시 일정 시간 잠급니다(자동화공격 방지).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceUuid, challengeId, signature, encryptedPin]
+              properties:
+                deviceUuid: { type: string }
+                challengeId: { type: string }
+                signature: { type: string, description: 챌린지에 대한 기기 개인키 서명(Base64) }
+                encryptedPin: { $ref: '#/components/schemas/EncryptedField' }
+      responses:
+        '200': { $ref: '#/components/responses/TokenResponse' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  # ───────────────────────── Crypto: E2E 공개키 ─────────────────────────
+  /crypto/e2e-key:
+    get:
+      tags: [Auth]
+      summary: E2E 필드 암호화용 서버 공개키
+      description: |
+        민감 필드(간편비번·계좌비번·비밀번호)를 TLS 위에 한 겹 더 암호화해 보내기 위한 서버 RSA 공개키.
+        클라이언트는 랜덤 AES-256-GCM 키로 필드를 암호화하고, 그 키를 이 공개키(RSA-OAEP-SHA256)로 감쌉니다.
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keyId: { type: string, example: e2e-v1 }
+                  algorithm: { type: string, example: 'RSA-OAEP-256' }
+                  publicKey: { type: string, description: 서버 RSA 공개키(Base64 X.509/SPKI) }
+                  expiresAt: { type: string, format: date-time }
+
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1626,3 +1705,16 @@ components:
         body: { type: string }
         answered: { type: boolean }
         createdAt: { type: string, format: date-time }
+
+    EncryptedField:
+      type: object
+      description: |
+        E2E 필드 암호화 봉투. 민감 값을 담아 전송하며 서버 앱단에서만 복호화합니다.
+        encrypted=false(취약/비권장)이면 plaintext 에 평문이 담깁니다.
+      properties:
+        encrypted: { type: boolean }
+        keyId: { type: string, example: e2e-v1 }
+        encKey: { type: string, description: RSA-OAEP 로 감싼 AES 키(Base64) }
+        iv: { type: string, description: AES-GCM nonce(Base64) }
+        ciphertext: { type: string, description: AES-256-GCM 암호문(Base64) }
+        plaintext: { type: string, description: 'encrypted=false 일 때만 사용(평문)' }

@@ -39,6 +39,11 @@ import com.moa.finance.ui.components.LocalShowMessage
 import com.moa.finance.ui.screens.SecurityLabScreen
 import com.moa.finance.ui.screens.MainBoardScreen
 import com.moa.finance.security.LocalSession
+import com.moa.finance.ui.screens.PinRegisterScreen
+import com.moa.finance.ui.screens.PinLoginScreen
+import com.moa.finance.security.PinManager
+import com.moa.finance.security.CertificateManager
+import androidx.compose.ui.platform.LocalContext
 import com.moa.finance.data.MoaRepository
 import androidx.compose.runtime.LaunchedEffect
 import com.moa.finance.ui.screens.AccountManageScreen
@@ -68,6 +73,8 @@ object Routes {
     const val ACCOUNT_MANAGE = "my/account"
     const val MAIN_BOARD = "main"
     const val SECURITY_LAB = "my/security-lab"
+    const val PIN_REGISTER = "pin/register"
+    const val PIN_LOGIN = "pin/login"
 
     fun inquiry(tab: Int = 0, accountId: String? = null) =
         "$INQUIRY?tab=$tab" + (accountId?.let { "&account=$it" } ?: "")
@@ -134,22 +141,64 @@ fun MoaApp(deepLinkHost: String? = null) {
                 modifier = Modifier.padding(padding),
             ) {
                 composable(Routes.LOGIN) {
+                    val context = LocalContext.current
                     LoginScreen(
-                        onLogin = {
+                        onCertLogin = {
+                            val uid = MoaRepository.user.name
+                            // 최초면 인증서(키쌍) 발급 + 공개키 등록, 그다음 챌린지-응답 로그인
+                            if (!CertificateManager.isRegistered(uid)) CertificateManager.issueAndRegister(uid)
+                            if (CertificateManager.login(uid)) {
+                                session.login(uid)
+                                session.enableAutoLogin(uid)
+                                if (PinManager(context).isRegistered()) {
+                                    navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } }
+                                } else {
+                                    navController.navigate(Routes.PIN_REGISTER)
+                                }
+                            } else {
+                                showMessage("인증서 로그인에 실패했어요")
+                            }
+                        },
+                        onPinLogin = {
+                            if (PinManager(context).isRegistered()) {
+                                navController.navigate(Routes.PIN_LOGIN)
+                            } else {
+                                showMessage("먼저 금융인증서로 로그인하고 간편비밀번호를 등록해 주세요")
+                            }
+                        },
+                        onSignUp = { navController.navigate(Routes.SIGN_UP) },
+                        onBack = { showMessage("Labbit에 오신 걸 환영해요") },
+                    )
+                }
+                composable(Routes.PIN_REGISTER) {
+                    PinRegisterScreen(
+                        userId = MoaRepository.user.name,
+                        onDone = { navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } } },
+                        onBack = { navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } } },
+                    )
+                }
+                composable(Routes.PIN_LOGIN) {
+                    PinLoginScreen(
+                        userId = MoaRepository.user.name,
+                        onSuccess = {
                             session.login(MoaRepository.user.name)
                             session.enableAutoLogin(MoaRepository.user.name)
                             navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } }
                         },
-                        onSignUp = { navController.navigate(Routes.SIGN_UP) },
-                        onBack = { showMessage("Labbit에 오신 걸 환영해요") },
+                        onUseCertificate = { navController.popBackStack() },
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable(Routes.SIGN_UP) {
                     SignUpScreen(
                         onBack = { navController.popBackStack() },
                         onComplete = {
-                            session.login(MoaRepository.user.name)
-                            navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } }
+                            val uid = MoaRepository.user.name
+                            // 가입 시 금융인증서(키쌍) 발급·공개키 등록
+                            CertificateManager.issueAndRegister(uid)
+                            session.login(uid)
+                            session.enableAutoLogin(uid)
+                            navController.navigate(Routes.PIN_REGISTER) { popUpTo(Routes.LOGIN) { inclusive = true } }
                         },
                     )
                 }
