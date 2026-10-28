@@ -151,7 +151,7 @@ fun MoaApp(deepLinkHost: String? = null) {
                         onCertLogin = {
                             val uid = MoaRepository.user.name
                             // 최초면 인증서(키쌍) 발급 + 공개키 등록, 그다음 챌린지-응답 로그인
-                            if (!CertificateManager.isRegistered(uid)) CertificateManager.issueAndRegister(uid)
+                            if (!CertificateManager.isRegistered(uid)) CertificateManager.issueAndRegister(uid, MoaRepository.user.ci)
                             if (CertificateManager.login(uid)) {
                                 session.login(uid)
                                 session.enableAutoLogin(uid)
@@ -199,8 +199,8 @@ fun MoaApp(deepLinkHost: String? = null) {
                         onBack = { navController.popBackStack() },
                         onComplete = {
                             val uid = MoaRepository.user.name
-                            // 가입 시 금융인증서(키쌍) 발급·공개키 등록
-                            CertificateManager.issueAndRegister(uid)
+                            // 가입 시 금융인증서(키쌍) 발급·공개키·CI 등록
+                            CertificateManager.issueAndRegister(uid, MoaRepository.user.ci)
                             session.login(uid)
                             session.enableAutoLogin(uid)
                             navController.navigate(Routes.PIN_REGISTER) { popUpTo(Routes.LOGIN) { inclusive = true } }

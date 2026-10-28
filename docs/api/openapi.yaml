@@ -16,7 +16,8 @@ info:
     v1.1 추가: 기기관리(바인딩·해제), 활성 세션 관리, 거래 추가인증 Challenge,
     비밀번호 재설정(OTP), 메인창(검색·공지·게시판·파일·고객센터).
     v1.2 추가: 간편비밀번호(6자리) 등록·로그인, E2E 필드 암호화 공개키.
-    간편비밀번호·계좌비밀번호 등 민감 필드는 E2E 봉투(EncryptedField)로 전송합니다.
+    E2E(EncryptedField)는 회원가입·로그인·입출금·인증서 발급의 민감 필드에 적용합니다.
+    인증서 발급은 실제 CA 대신 테스트 계정의 CI(연계정보)를 바인딩합니다(POST /devices 의 encryptedCi).
     보안 점검항목 매핑은 docs/security/SECURITY-LAB.md 를 참고하세요.
 servers:
   - url: https://api.moa.example/v1
@@ -1017,11 +1018,17 @@ paths:
           application/json:
             schema:
               type: object
-              required: [deviceUuid, publicKey]
+              required: [deviceUuid, publicKey, encryptedCi]
               properties:
                 deviceUuid: { type: string, description: 128bit 난수 기반 UUID }
                 deviceName: { type: string, example: 'Galaxy S24' }
                 publicKey: { type: string, description: Keystore 공개키(Base64) }
+                encryptedCi:
+                  allOf:
+                    - $ref: '#/components/schemas/EncryptedField'
+                  description: |
+                    연계정보(CI)를 E2E 봉투로 전송. 실제 CA 대신 테스트 계정의 CI를 인증서에 바인딩합니다.
+                    (인증서 발급 정보 — E2E 적용 대상)
       responses:
         '201':
           description: 등록됨

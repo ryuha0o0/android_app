@@ -39,6 +39,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moa.finance.data.MoaRepository
+import com.moa.finance.security.MockBackend
+import com.moa.finance.security.E2ECrypto
 import com.moa.finance.ui.components.FieldLabel
 import com.moa.finance.ui.components.LocalShowMessage
 import com.moa.finance.ui.components.MoaText
@@ -178,6 +180,8 @@ fun SignUpScreen(onBack: () -> Unit, onComplete: () -> Unit) {
 
             Spacer(Modifier.height(24.dp))
             PrimaryButton("동의하고 본인 확인", onClick = {
+                // E2E: 회원가입 본인확인 정보(휴대폰 번호)를 암호화 봉투로 전송
+                MockBackend.e2eDecrypt(E2ECrypto.encryptField(phone, MockBackend.e2ePublicKey(), MockBackend.E2E_KEY_ID))
                 MoaRepository.user = MoaRepository.user.copy(name = name.trim(), phone = phone)
                 showDone = true
             }, enabled = canSubmit)

@@ -78,6 +78,8 @@ Labbit은 금융보안원 전자금융기반시설 평가기준 등 점검항목
   끄면 PBKDF2(솔트+10만회). (`security/PinManager.derive()`)
 - **간편비밀번호 무차별(NO_PIN_LOCKOUT)**: 켜면 PIN을 무한 시도. 끄면 5회 실패 시 60초 잠금.
 - **보안 키패드(STATIC_KEYPAD)**: 켜면 키패드 숫자 배열 고정 → 터치 좌표로 PIN 유추. 끄면 매번 셔플.
+- **E2E 적용 영역**: 회원가입(휴대폰) / 로그인(간편비번) / 입출금(받는 계좌·금액) / 인증서 발급(CI).
+  인증서 로그인은 실제 CA 대신 테스트 계정(`labbit-test-01`)의 CI를 인증서에 바인딩해 발급·검증합니다.
 - **E2E 미적용(NO_E2E_ENCRYPTION)**: 켜면 PIN·비밀번호를 평문으로 전송(봉투 plaintext). 끄면 AES-256-GCM+RSA-OAEP 암호화 후
   서버(MockBackend)만 복호화. 등록 시 왕복 복호화로 동작 확인.
 

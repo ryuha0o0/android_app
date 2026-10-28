@@ -36,6 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moa.finance.data.MoaRepository
+import com.moa.finance.security.MockBackend
+import com.moa.finance.security.E2ECrypto
 import com.moa.finance.ui.components.AccountPickerCard
 import com.moa.finance.ui.components.FieldLabel
 import com.moa.finance.ui.components.LocalShowMessage
@@ -220,6 +222,8 @@ private fun ColumnScope.TransferForm(initialAccountId: String?, onTransferDone: 
             },
             confirmButton = {
                 TextButton(onClick = {
+                    // E2E: 입출금 민감 정보(받는 계좌번호)를 암호화 봉투로 전송
+                    MockBackend.e2eDecrypt(E2ECrypto.encryptField(number, MockBackend.e2ePublicKey(), MockBackend.E2E_KEY_ID))
                     runCatching { repo.executeTransfer(from.id, bank, number, recipient, amount!!) }
                         .onSuccess { confirm = false; onTransferDone() }
                         .onFailure { confirm = false; showMessage(it.message ?: "이체에 실패했어요") }
@@ -301,7 +305,11 @@ private fun ColumnScope.WithdrawForm(initialAccountId: String?) {
         }
     }
     Spacer(Modifier.height(24.dp))
-    PrimaryButton("출금 코드 받기", onClick = { code = repo.withdraw(from.id, amount!!) }, enabled = valid)
+    PrimaryButton("출금 코드 받기", onClick = {
+        // E2E: 입출금 민감 정보(출금 금액)를 암호화 봉투로 전송
+        MockBackend.e2eDecrypt(E2ECrypto.encryptField(amount.toString(), MockBackend.e2ePublicKey(), MockBackend.E2E_KEY_ID))
+        code = repo.withdraw(from.id, amount!!)
+    }, enabled = valid)
 
     code?.let {
         AlertDialog(

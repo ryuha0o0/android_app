@@ -54,4 +54,6 @@ data class UserProfile(
     val phone: String,
     val email: String,
     val joinedDays: Int,
+    /** 연계정보(CI) — 실명 기반 식별자(실제 CA 대신 테스트 계정용 가짜 값). 인증서 발급·검증의 기준. */
+    val ci: String = "",
 )

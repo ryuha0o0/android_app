@@ -105,6 +105,9 @@ fun PinLoginScreen(userId: String, onSuccess: () -> Unit, onUseCertificate: () -
                 error = "시도가 많아 잠겼어요. ${pinManager.lockRemainingSeconds()}초 후 다시 시도해 주세요"; pin = ""
             }
             pinManager.verify(full) -> {
+                // E2E: 간편비번을 암호화 봉투로 서버에 전송(검증은 로컬, 데모용 왕복)
+                val env = E2ECrypto.encryptField(full, MockBackend.e2ePublicKey(), MockBackend.E2E_KEY_ID)
+                MockBackend.e2eDecrypt(env)
                 if (CertificateManager.login(userId)) {
                     onSuccess()
                 } else {

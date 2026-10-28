@@ -30,8 +30,9 @@ object MockBackend {
     private val b64e = Base64.getEncoder()
     private val b64d = Base64.getDecoder()
 
-    // 등록된 기기 공개키 (userId -> EC PublicKey)
+    // 등록된 기기 공개키 (userId -> EC PublicKey) 와 연계정보(userId -> CI)
     private val registeredKeys = ConcurrentHashMap<String, PublicKey>()
+    private val registeredCi = ConcurrentHashMap<String, String>()
     // 발급한 챌린지 (challengeId -> bytes), 1회성
     private val challenges = ConcurrentHashMap<String, ByteArray>()
 
@@ -43,12 +44,19 @@ object MockBackend {
 
     fun e2ePublicKey(): PublicKey = e2eKeyPair.public
 
-    /** 가입 시 기기 공개키 등록. publicKeyBase64 는 Keystore 가 내보낸 X.509 인코딩. */
-    fun registerDeviceKey(userId: String, publicKeyBase64: String) {
+    /**
+     * 가입 시 기기 공개키 + 연계정보(CI) 등록. 실제 CA 대신 테스트 계정의 CI를 인증서에 바인딩합니다.
+     * publicKeyBase64 는 Keystore 가 내보낸 X.509 인코딩.
+     */
+    fun registerDeviceKey(userId: String, ci: String, publicKeyBase64: String) {
         val spec = X509EncodedKeySpec(b64d.decode(publicKeyBase64))
         val kf = java.security.KeyFactory.getInstance("EC")
         registeredKeys[userId] = kf.generatePublic(spec)
+        registeredCi[userId] = ci
     }
+
+    /** 로그인 성공 시 서버가 아는 해당 인증서의 CI. (서명으로 소유를 증명하면 서버가 CI로 식별) */
+    fun ciOf(userId: String): String? = registeredCi[userId]
 
     fun hasRegisteredKey(userId: String): Boolean = registeredKeys.containsKey(userId)
 

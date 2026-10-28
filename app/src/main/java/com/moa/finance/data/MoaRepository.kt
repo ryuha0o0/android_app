@@ -18,8 +18,12 @@ object MoaRepository {
 
     val banks = listOf("한빛은행", "새봄은행", "늘봄은행", "Labbit은행", "하나로은행")
 
+    /** 테스트 계정 (실제 CA 연동 대신 CI 기반 인증서 로그인 실습용). */
+    const val TEST_USER_ID = "labbit-test-01"
+    const val TEST_CI = "CI:TEST:9f1c7a0b3d5e4f628a1b"  // 가짜 연계정보(CI)
+
     var user by mutableStateOf(
-        UserProfile(name = "김모아", phone = "010-0000-1234", email = "moa@example.com", joinedDays = 128)
+        UserProfile(name = "김모아", phone = "010-0000-1234", email = "moa@example.com", joinedDays = 128, ci = TEST_CI)
     )
 
     val accounts = mutableStateListOf(
