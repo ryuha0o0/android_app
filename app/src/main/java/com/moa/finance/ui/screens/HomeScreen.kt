@@ -231,7 +231,7 @@ fun HomeScreen(
             }
             shown.forEach { account ->
                 WhiteCard(onClick = { onAccountDetail(account.id) }) {
-                    AccountSummary(account.bankInitial, account.name, "${account.bankName} · ${account.maskedNumber}")
+                    AccountSummary(account.bankName, account.name, "${account.bankName} · ${account.maskedNumber}")
                     Spacer(Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         MoaText(

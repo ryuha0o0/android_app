@@ -114,8 +114,6 @@ fun MyPageScreen(
 
             Spacer(Modifier.height(14.dp))
             MenuGroup {
-                MenuRow("알림 설정", Icons.Outlined.Notifications) { showMessage("알림 설정은 준비 중이에요") }
-                MenuDivider()
                 MenuRow("고객센터", Icons.Outlined.HeadsetMic) { showMessage("고객센터 1588-0000") }
                 MenuDivider()
                 MenuRow("약관 및 개인정보 처리방침", Icons.Outlined.Description) { showMessage("약관 전문은 준비 중이에요") }

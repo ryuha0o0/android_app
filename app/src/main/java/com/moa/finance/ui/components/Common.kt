@@ -52,6 +52,19 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moa.finance.ui.theme.MoaBlue
+import com.moa.finance.ui.theme.MoaBlueSoft
+import com.moa.finance.ui.theme.InstDefaultFg
+import com.moa.finance.ui.theme.InstDefaultBg
+import com.moa.finance.ui.theme.InstNaraeFg
+import com.moa.finance.ui.theme.InstNaraeBg
+import com.moa.finance.ui.theme.InstSaebomFg
+import com.moa.finance.ui.theme.InstSaebomBg
+import com.moa.finance.ui.theme.InstHanbitFg
+import com.moa.finance.ui.theme.InstHanbitBg
+import com.moa.finance.ui.theme.MoaSuccessSoft
+import com.moa.finance.ui.theme.MoaDangerSoft
+import com.moa.finance.ui.theme.MoaBlueDark
+import com.moa.finance.ui.theme.MoaAmberSoft
 import com.moa.finance.ui.theme.MoaBlueLight
 import com.moa.finance.ui.theme.MoaDivider
 import com.moa.finance.ui.theme.MoaSurface
@@ -164,6 +177,7 @@ fun WhiteCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(color)
+            .then(if (color == MoaSurface) Modifier.border(1.dp, MoaDivider, RoundedCornerShape(18.dp)) else Modifier)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(padding),
         content = content,
@@ -176,7 +190,7 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
         modifier
             .fillMaxWidth()
             .height(54.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(if (enabled) MoaBlue else MoaBlue.copy(alpha = 0.35f))
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -213,16 +227,47 @@ fun SecondaryButton(
     }
 }
 
+/** 은행명 → (배경, 글자) 마크 색. 디자인의 .inst-* 규칙. */
+fun instColors(bankName: String): Pair<Color, Color> = when {
+    bankName.contains("한빛") -> InstHanbitBg to InstHanbitFg
+    bankName.contains("새봄") -> InstSaebomBg to InstSaebomFg
+    bankName.contains("늘봄") || bankName.contains("나래") -> InstNaraeBg to InstNaraeFg
+    else -> InstDefaultBg to InstDefaultFg
+}
+
 @Composable
-fun BankBadge(initial: String, size: Dp = 40.dp) {
+fun BankBadge(initial: String, bankName: String = "", size: Dp = 40.dp) {
+    val (bg, fg) = instColors(bankName.ifEmpty { initial })
     Box(
         Modifier
             .size(size)
             .clip(RoundedCornerShape(12.dp))
-            .background(MoaBlueLight),
+            .background(bg),
         contentAlignment = Alignment.Center,
     ) {
-        MoaText(initial, size = 15.sp, weight = FontWeight.Bold, color = MoaBlue)
+        MoaText(initial, size = 15.sp, weight = FontWeight.Bold, color = fg)
+    }
+}
+
+/** 안내 박스 (.notice / -warning / -error / -success). */
+enum class NoticeKind { Info, Warning, Error, Success }
+
+@Composable
+fun Notice(text: String, kind: NoticeKind = NoticeKind.Info, modifier: Modifier = Modifier) {
+    val (bg, fg) = when (kind) {
+        NoticeKind.Info -> MoaBlueSoft to Color(0xFF2A3F8F)
+        NoticeKind.Warning -> MoaAmberSoft to Color(0xFF87500A)
+        NoticeKind.Error -> MoaDangerSoft to Color(0xFFA8222F)
+        NoticeKind.Success -> MoaSuccessSoft to Color(0xFF0F6847)
+    }
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(bg)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+    ) {
+        MoaText(text, size = 13.sp, color = fg, lineHeight = 20.sp)
     }
 }
 
@@ -370,13 +415,13 @@ fun InfoRow(label: String, value: String, valueWeight: FontWeight = FontWeight.S
 
 @Composable
 fun AccountSummary(
-    bankInitial: String,
+    bankName: String,
     name: String,
     subtitle: String,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        BankBadge(bankInitial)
+        BankBadge(bankName.take(1), bankName)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             MoaText(name, size = 15.sp, weight = FontWeight.Bold)

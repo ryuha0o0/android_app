@@ -82,14 +82,13 @@ object Routes {
     fun transfer(tab: Int = 0, accountId: String? = null) =
         "$TRANSFER?tab=$tab" + (accountId?.let { "&account=$it" } ?: "")
 
-    fun card(tab: Int = 0) = "$CARD?tab=$tab"
 }
 
 private enum class BottomTab(val label: String, val icon: ImageVector, val routePrefix: String, val route: String) {
     Home("홈", Icons.Outlined.Home, Routes.HOME, Routes.HOME),
     Inquiry("조회", Icons.Outlined.BarChart, Routes.INQUIRY, Routes.inquiry()),
     Transfer("이체", Icons.Outlined.SwapHoriz, Routes.TRANSFER, Routes.transfer()),
-    Card("카드", Icons.Outlined.CreditCard, Routes.CARD, Routes.card()),
+    Card("카드", Icons.Outlined.CreditCard, Routes.CARD, Routes.CARD),
     My("마이", Icons.Outlined.Person, Routes.MY, Routes.MY),
 }
 
@@ -207,7 +206,7 @@ fun MoaApp(deepLinkHost: String? = null) {
                         onAccounts = { navController.navigateToTab(Routes.inquiry()) },
                         onTransfer = { id -> navController.navigate(Routes.transfer(accountId = id)) },
                         onWithdraw = { navController.navigate(Routes.transfer(tab = 1)) },
-                        onCards = { navController.navigate(Routes.card(tab = 1)) },
+                        onCards = { navController.navigate(Routes.CARD) },
                         onAccountDetail = { id -> navController.navigate(Routes.inquiry(tab = 1, accountId = id)) },
                     )
                 }
@@ -243,14 +242,8 @@ fun MoaApp(deepLinkHost: String? = null) {
                         },
                     )
                 }
-                composable(
-                    "${Routes.CARD}?tab={tab}",
-                    arguments = listOf(navArgument("tab") { type = NavType.IntType; defaultValue = 0 }),
-                ) { entry ->
-                    CardScreen(
-                        initialTab = entry.arguments?.getInt("tab") ?: 0,
-                        onBack = { navController.navigateUpOrHome() },
-                    )
+                composable(Routes.CARD) {
+                    CardScreen(onBack = { navController.navigateUpOrHome() })
                 }
                 composable(Routes.MY) {
                     MyPageScreen(

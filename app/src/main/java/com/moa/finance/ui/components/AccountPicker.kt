@@ -43,9 +43,9 @@ fun AccountPickerCard(
                     Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "계좌 선택", tint = MoaTextPrimary)
                 }
                 Spacer(Modifier.height(10.dp))
-                AccountSummary(selected.bankInitial, selected.name, "${selected.bankName} · ${selected.maskedNumber}")
+                AccountSummary(selected.bankName, selected.name, "${selected.bankName} · ${selected.maskedNumber}")
             } else {
-                AccountSummary(selected.bankInitial, selected.name, "${selected.bankName} · ${selected.maskedNumber}") {
+                AccountSummary(selected.bankName, selected.name, "${selected.bankName} · ${selected.maskedNumber}") {
                     Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "계좌 선택", tint = MoaTextPrimary)
                 }
             }

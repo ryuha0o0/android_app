@@ -142,7 +142,7 @@ private fun ColumnScope.AllAccountsTab(onHistory: (String) -> Unit, onTransfer: 
 
     repo.accounts.forEach { account ->
         WhiteCard {
-            AccountSummary(account.bankInitial, account.name, "${account.bankName} · ${account.maskedNumber}")
+            AccountSummary(account.bankName, account.name, "${account.bankName} · ${account.maskedNumber}")
             Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MoaText(formatWon(account.balance), size = 22.sp, weight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
@@ -487,7 +487,7 @@ private fun ColumnScope.ClosedAccountsTab() {
                 Tag("해지 완료", container = MoaChip, content = MoaTextSecondary)
             }
             Spacer(Modifier.height(14.dp))
-            AccountSummary(c.bankName.take(1), c.name, "${c.bankName} · ${c.number.substringBeforeLast('-')}-••${c.number.takeLast(4)}")
+            AccountSummary(c.bankName, c.name, "${c.bankName} · ${c.number.substringBeforeLast('-')}-••${c.number.takeLast(4)}")
             HorizontalDivider(color = MoaDivider, modifier = Modifier.padding(vertical = 16.dp))
             InfoRow("개설일", c.openedAt)
             InfoRow("해지일", c.closedAt)
